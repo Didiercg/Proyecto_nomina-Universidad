@@ -1,0 +1,1461 @@
+﻿export const DEUDAS_AMORTIZACION = {
+    "Moto":  [
+                 {
+                     "num":  1,
+                     "fecha":  "2026-01-22",
+                     "saldo_inicial":  11657424,
+                     "cuota":  242863,
+                     "interes":  194678.9808,
+                     "saldo_final":  11414561,
+                     "estado":  "PAGADO",
+                     "abono":  0
+                 },
+                 {
+                     "num":  2,
+                     "fecha":  "2026-02-22",
+                     "saldo_inicial":  11414561,
+                     "cuota":  242863,
+                     "interes":  190623.1687,
+                     "saldo_final":  11171698,
+                     "estado":  "PAGADO",
+                     "abono":  0
+                 },
+                 {
+                     "num":  3,
+                     "fecha":  "2026-03-22",
+                     "saldo_inicial":  11171698,
+                     "cuota":  242863,
+                     "interes":  186567.3566,
+                     "saldo_final":  10928835,
+                     "estado":  "PAGADO",
+                     "abono":  0
+                 },
+                 {
+                     "num":  4,
+                     "fecha":  "2026-04-22",
+                     "saldo_inicial":  10928835,
+                     "cuota":  242863,
+                     "interes":  182511.5445,
+                     "saldo_final":  10685972,
+                     "estado":  "PAGADO",
+                     "abono":  0
+                 },
+                 {
+                     "num":  5,
+                     "fecha":  "2026-05-22",
+                     "saldo_inicial":  10685972,
+                     "cuota":  242863,
+                     "interes":  178455.7324,
+                     "saldo_final":  10443109,
+                     "estado":  "PAGADO",
+                     "abono":  0
+                 },
+                 {
+                     "num":  6,
+                     "fecha":  "2026-06-22",
+                     "saldo_inicial":  10443109,
+                     "cuota":  242863,
+                     "interes":  174399.9203,
+                     "saldo_final":  10200246,
+                     "estado":  "PAGADO",
+                     "abono":  0
+                 },
+                 {
+                     "num":  7,
+                     "fecha":  "2026-07-22",
+                     "saldo_inicial":  10200246,
+                     "cuota":  242863,
+                     "interes":  170344.1082,
+                     "saldo_final":  9957383,
+                     "estado":  "PAGADO",
+                     "abono":  0
+                 },
+                 {
+                     "num":  8,
+                     "fecha":  "2026-08-22",
+                     "saldo_inicial":  9957383,
+                     "cuota":  242863,
+                     "interes":  166288.2961,
+                     "saldo_final":  9714520,
+                     "estado":  "PAGADO",
+                     "abono":  0
+                 },
+                 {
+                     "num":  9,
+                     "fecha":  "2026-09-22",
+                     "saldo_inicial":  9714520,
+                     "cuota":  242863,
+                     "interes":  162232.484,
+                     "saldo_final":  9471657,
+                     "estado":  "PAGADO",
+                     "abono":  0
+                 },
+                 {
+                     "num":  10,
+                     "fecha":  "2026-10-22",
+                     "saldo_inicial":  9471657,
+                     "cuota":  242863,
+                     "interes":  158176.6719,
+                     "saldo_final":  9228794,
+                     "estado":  "PAGADO",
+                     "abono":  0
+                 },
+                 {
+                     "num":  11,
+                     "fecha":  "2026-11-22",
+                     "saldo_inicial":  9228794,
+                     "cuota":  242863,
+                     "interes":  154120.8598,
+                     "saldo_final":  8985931,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  12,
+                     "fecha":  "2026-12-22",
+                     "saldo_inicial":  8985931,
+                     "cuota":  242863,
+                     "interes":  150065.0477,
+                     "saldo_final":  8743068,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  13,
+                     "fecha":  "2027-01-22",
+                     "saldo_inicial":  8743068,
+                     "cuota":  242863,
+                     "interes":  146009.23559999999,
+                     "saldo_final":  8500205,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  14,
+                     "fecha":  "2027-02-22",
+                     "saldo_inicial":  8500205,
+                     "cuota":  242863,
+                     "interes":  141953.4235,
+                     "saldo_final":  8257342,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  15,
+                     "fecha":  "2027-03-22",
+                     "saldo_inicial":  8257342,
+                     "cuota":  242863,
+                     "interes":  137897.6114,
+                     "saldo_final":  8014479,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  16,
+                     "fecha":  "2027-04-22",
+                     "saldo_inicial":  8014479,
+                     "cuota":  242863,
+                     "interes":  133841.79929999998,
+                     "saldo_final":  7771616,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  17,
+                     "fecha":  "2027-05-22",
+                     "saldo_inicial":  7771616,
+                     "cuota":  242863,
+                     "interes":  129785.9872,
+                     "saldo_final":  7528753,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  18,
+                     "fecha":  "2027-06-22",
+                     "saldo_inicial":  7528753,
+                     "cuota":  242863,
+                     "interes":  125730.1751,
+                     "saldo_final":  7285890,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  19,
+                     "fecha":  "2027-07-22",
+                     "saldo_inicial":  7285890,
+                     "cuota":  242863,
+                     "interes":  121674.363,
+                     "saldo_final":  7043027,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  20,
+                     "fecha":  "2027-08-22",
+                     "saldo_inicial":  7043027,
+                     "cuota":  242863,
+                     "interes":  117618.5509,
+                     "saldo_final":  6800164,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  21,
+                     "fecha":  "2027-09-22",
+                     "saldo_inicial":  6800164,
+                     "cuota":  242863,
+                     "interes":  113562.73879999999,
+                     "saldo_final":  6557301,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  22,
+                     "fecha":  "2027-10-22",
+                     "saldo_inicial":  6557301,
+                     "cuota":  242863,
+                     "interes":  109506.9267,
+                     "saldo_final":  6314438,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  23,
+                     "fecha":  "2027-11-22",
+                     "saldo_inicial":  6314438,
+                     "cuota":  242863,
+                     "interes":  105451.1146,
+                     "saldo_final":  6071575,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  24,
+                     "fecha":  "2027-12-22",
+                     "saldo_inicial":  6071575,
+                     "cuota":  242863,
+                     "interes":  101395.30249999999,
+                     "saldo_final":  5828712,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  25,
+                     "fecha":  "2028-01-22",
+                     "saldo_inicial":  5828712,
+                     "cuota":  242863,
+                     "interes":  97339.4904,
+                     "saldo_final":  5585849,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  26,
+                     "fecha":  "2028-02-22",
+                     "saldo_inicial":  5585849,
+                     "cuota":  242863,
+                     "interes":  93283.6783,
+                     "saldo_final":  5342986,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  27,
+                     "fecha":  "2028-03-22",
+                     "saldo_inicial":  5342986,
+                     "cuota":  242863,
+                     "interes":  89227.8662,
+                     "saldo_final":  5100123,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  28,
+                     "fecha":  "2028-04-22",
+                     "saldo_inicial":  5100123,
+                     "cuota":  242863,
+                     "interes":  85172.0541,
+                     "saldo_final":  4857260,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  29,
+                     "fecha":  "2028-05-22",
+                     "saldo_inicial":  4857260,
+                     "cuota":  242863,
+                     "interes":  81116.242,
+                     "saldo_final":  4614397,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  30,
+                     "fecha":  "2028-06-22",
+                     "saldo_inicial":  4614397,
+                     "cuota":  242863,
+                     "interes":  77060.4299,
+                     "saldo_final":  4371534,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  31,
+                     "fecha":  "2028-07-22",
+                     "saldo_inicial":  4371534,
+                     "cuota":  242863,
+                     "interes":  73004.617799999993,
+                     "saldo_final":  4128671,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  32,
+                     "fecha":  "2028-08-22",
+                     "saldo_inicial":  4128671,
+                     "cuota":  242863,
+                     "interes":  68948.8057,
+                     "saldo_final":  3885808,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  33,
+                     "fecha":  "2028-09-22",
+                     "saldo_inicial":  3885808,
+                     "cuota":  242863,
+                     "interes":  64892.9936,
+                     "saldo_final":  3642945,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  34,
+                     "fecha":  "2028-10-22",
+                     "saldo_inicial":  3642945,
+                     "cuota":  242863,
+                     "interes":  60837.1815,
+                     "saldo_final":  3400082,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  35,
+                     "fecha":  "2028-11-22",
+                     "saldo_inicial":  3400082,
+                     "cuota":  242863,
+                     "interes":  56781.369399999996,
+                     "saldo_final":  3157219,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  36,
+                     "fecha":  "2028-12-22",
+                     "saldo_inicial":  3157219,
+                     "cuota":  242863,
+                     "interes":  52725.5573,
+                     "saldo_final":  2914356,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  37,
+                     "fecha":  "2029-01-22",
+                     "saldo_inicial":  2914356,
+                     "cuota":  242863,
+                     "interes":  48669.7452,
+                     "saldo_final":  2671493,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  38,
+                     "fecha":  "2029-02-22",
+                     "saldo_inicial":  2671493,
+                     "cuota":  242863,
+                     "interes":  44613.9331,
+                     "saldo_final":  2428630,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  39,
+                     "fecha":  "2029-03-22",
+                     "saldo_inicial":  2428630,
+                     "cuota":  242863,
+                     "interes":  40558.121,
+                     "saldo_final":  2185767,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  40,
+                     "fecha":  "2029-04-22",
+                     "saldo_inicial":  2185767,
+                     "cuota":  242863,
+                     "interes":  36502.308899999996,
+                     "saldo_final":  1942904,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  41,
+                     "fecha":  "2029-05-22",
+                     "saldo_inicial":  1942904,
+                     "cuota":  242863,
+                     "interes":  32446.4968,
+                     "saldo_final":  1700041,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  42,
+                     "fecha":  "2029-06-22",
+                     "saldo_inicial":  1700041,
+                     "cuota":  242863,
+                     "interes":  28390.684699999998,
+                     "saldo_final":  1457178,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  43,
+                     "fecha":  "2029-07-22",
+                     "saldo_inicial":  1457178,
+                     "cuota":  242863,
+                     "interes":  24334.8726,
+                     "saldo_final":  1214315,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  44,
+                     "fecha":  "2029-08-22",
+                     "saldo_inicial":  1214315,
+                     "cuota":  242863,
+                     "interes":  20279.0605,
+                     "saldo_final":  971452,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  45,
+                     "fecha":  "2029-09-22",
+                     "saldo_inicial":  971452,
+                     "cuota":  242863,
+                     "interes":  16223.2484,
+                     "saldo_final":  728589,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  46,
+                     "fecha":  "2029-10-22",
+                     "saldo_inicial":  728589,
+                     "cuota":  242863,
+                     "interes":  12167.4363,
+                     "saldo_final":  485726,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  47,
+                     "fecha":  "2029-11-22",
+                     "saldo_inicial":  485726,
+                     "cuota":  242863,
+                     "interes":  8111.6242,
+                     "saldo_final":  242863,
+                     "estado":  null,
+                     "abono":  0
+                 },
+                 {
+                     "num":  48,
+                     "fecha":  "2029-12-22",
+                     "saldo_inicial":  242863,
+                     "cuota":  242863,
+                     "interes":  4055.8121,
+                     "saldo_final":  0,
+                     "estado":  null,
+                     "abono":  0
+                 }
+             ],
+    "Tablet":  [
+                   {
+                       "num":  1,
+                       "fecha":  "2026-09-25",
+                       "saldo_inicial":  1322856,
+                       "cuota":  55119,
+                       "interes":  1190.5704,
+                       "saldo_final":  1167737,
+                       "estado":  "PAGADO",
+                       "abono":  100000
+                   },
+                   {
+                       "num":  2,
+                       "fecha":  "2026-10-25",
+                       "saldo_inicial":  1167737,
+                       "cuota":  55119,
+                       "interes":  1190.5704,
+                       "saldo_final":  1112618,
+                       "estado":  "PAGADO",
+                       "abono":  0
+                   },
+                   {
+                       "num":  3,
+                       "fecha":  "2026-11-25",
+                       "saldo_inicial":  1112618,
+                       "cuota":  55119,
+                       "interes":  1190.5704,
+                       "saldo_final":  1057499,
+                       "estado":  null,
+                       "abono":  0
+                   },
+                   {
+                       "num":  4,
+                       "fecha":  "2026-12-25",
+                       "saldo_inicial":  1057499,
+                       "cuota":  55119,
+                       "interes":  1190.5704,
+                       "saldo_final":  1002380,
+                       "estado":  null,
+                       "abono":  0
+                   },
+                   {
+                       "num":  5,
+                       "fecha":  "2027-01-25",
+                       "saldo_inicial":  1002380,
+                       "cuota":  55119,
+                       "interes":  1190.5704,
+                       "saldo_final":  947261,
+                       "estado":  null,
+                       "abono":  0
+                   },
+                   {
+                       "num":  6,
+                       "fecha":  "2027-02-25",
+                       "saldo_inicial":  947261,
+                       "cuota":  55119,
+                       "interes":  1190.5704,
+                       "saldo_final":  892142,
+                       "estado":  null,
+                       "abono":  0
+                   },
+                   {
+                       "num":  7,
+                       "fecha":  "2027-03-25",
+                       "saldo_inicial":  892142,
+                       "cuota":  55119,
+                       "interes":  1190.5704,
+                       "saldo_final":  837023,
+                       "estado":  null,
+                       "abono":  0
+                   },
+                   {
+                       "num":  8,
+                       "fecha":  "2027-04-25",
+                       "saldo_inicial":  837023,
+                       "cuota":  55119,
+                       "interes":  1190.5704,
+                       "saldo_final":  781904,
+                       "estado":  null,
+                       "abono":  0
+                   },
+                   {
+                       "num":  9,
+                       "fecha":  "2027-05-25",
+                       "saldo_inicial":  781904,
+                       "cuota":  55119,
+                       "interes":  1190.5704,
+                       "saldo_final":  726785,
+                       "estado":  null,
+                       "abono":  0
+                   },
+                   {
+                       "num":  10,
+                       "fecha":  "2027-06-25",
+                       "saldo_inicial":  726785,
+                       "cuota":  55119,
+                       "interes":  1190.5704,
+                       "saldo_final":  671666,
+                       "estado":  null,
+                       "abono":  0
+                   },
+                   {
+                       "num":  11,
+                       "fecha":  "2027-07-25",
+                       "saldo_inicial":  671666,
+                       "cuota":  55119,
+                       "interes":  1190.5704,
+                       "saldo_final":  616547,
+                       "estado":  null,
+                       "abono":  0
+                   },
+                   {
+                       "num":  12,
+                       "fecha":  "2027-08-25",
+                       "saldo_inicial":  616547,
+                       "cuota":  55119,
+                       "interes":  1190.5704,
+                       "saldo_final":  561428,
+                       "estado":  null,
+                       "abono":  0
+                   },
+                   {
+                       "num":  13,
+                       "fecha":  "2027-09-25",
+                       "saldo_inicial":  561428,
+                       "cuota":  55119,
+                       "interes":  1190.5704,
+                       "saldo_final":  506309,
+                       "estado":  null,
+                       "abono":  0
+                   },
+                   {
+                       "num":  14,
+                       "fecha":  "2027-10-25",
+                       "saldo_inicial":  506309,
+                       "cuota":  55119,
+                       "interes":  1190.5704,
+                       "saldo_final":  451190,
+                       "estado":  null,
+                       "abono":  0
+                   },
+                   {
+                       "num":  15,
+                       "fecha":  "2027-11-25",
+                       "saldo_inicial":  451190,
+                       "cuota":  55119,
+                       "interes":  1190.5704,
+                       "saldo_final":  396071,
+                       "estado":  null,
+                       "abono":  0
+                   },
+                   {
+                       "num":  16,
+                       "fecha":  "2027-12-25",
+                       "saldo_inicial":  396071,
+                       "cuota":  55119,
+                       "interes":  1190.5704,
+                       "saldo_final":  340952,
+                       "estado":  null,
+                       "abono":  0
+                   },
+                   {
+                       "num":  17,
+                       "fecha":  "2028-01-25",
+                       "saldo_inicial":  340952,
+                       "cuota":  55119,
+                       "interes":  1190.5704,
+                       "saldo_final":  285833,
+                       "estado":  null,
+                       "abono":  0
+                   },
+                   {
+                       "num":  18,
+                       "fecha":  "2028-02-25",
+                       "saldo_inicial":  285833,
+                       "cuota":  55119,
+                       "interes":  1190.5704,
+                       "saldo_final":  230714,
+                       "estado":  null,
+                       "abono":  0
+                   },
+                   {
+                       "num":  19,
+                       "fecha":  "2028-03-25",
+                       "saldo_inicial":  230714,
+                       "cuota":  55119,
+                       "interes":  1190.5704,
+                       "saldo_final":  175595,
+                       "estado":  null,
+                       "abono":  0
+                   },
+                   {
+                       "num":  20,
+                       "fecha":  "2028-04-25",
+                       "saldo_inicial":  175595,
+                       "cuota":  55119,
+                       "interes":  1190.5704,
+                       "saldo_final":  120476,
+                       "estado":  null,
+                       "abono":  0
+                   },
+                   {
+                       "num":  21,
+                       "fecha":  "2028-05-25",
+                       "saldo_inicial":  120476,
+                       "cuota":  55119,
+                       "interes":  1190.5704,
+                       "saldo_final":  65357,
+                       "estado":  null,
+                       "abono":  0
+                   },
+                   {
+                       "num":  22,
+                       "fecha":  "2028-06-25",
+                       "saldo_inicial":  65357,
+                       "cuota":  55119,
+                       "interes":  1190.5704,
+                       "saldo_final":  10238,
+                       "estado":  null,
+                       "abono":  0
+                   },
+                   {
+                       "num":  23,
+                       "fecha":  "2028-07-25",
+                       "saldo_inicial":  10238,
+                       "cuota":  55119,
+                       "interes":  1190.5704,
+                       "saldo_final":  -44881,
+                       "estado":  null,
+                       "abono":  0
+                   },
+                   {
+                       "num":  24,
+                       "fecha":  "2028-08-25",
+                       "saldo_inicial":  -44881,
+                       "cuota":  55119,
+                       "interes":  1190.5704,
+                       "saldo_final":  -100000,
+                       "estado":  null,
+                       "abono":  0
+                   }
+               ],
+    "Madre":  [
+                  {
+                      "num":  1,
+                      "fecha":  "2026-05-22",
+                      "saldo_inicial":  5189000,
+                      "cuota":  200000,
+                      "interes":  0,
+                      "saldo_final":  3989000,
+                      "estado":  "PAGADO",
+                      "abono":  1000000
+                  },
+                  {
+                      "num":  2,
+                      "fecha":  "2026-06-22",
+                      "saldo_inicial":  3989000,
+                      "cuota":  200000,
+                      "interes":  0,
+                      "saldo_final":  3789000,
+                      "estado":  "PAGADO",
+                      "abono":  0
+                  },
+                  {
+                      "num":  3,
+                      "fecha":  "2026-07-22",
+                      "saldo_inicial":  3789000,
+                      "cuota":  200000,
+                      "interes":  0,
+                      "saldo_final":  3589000,
+                      "estado":  "PAGADO",
+                      "abono":  0
+                  },
+                  {
+                      "num":  4,
+                      "fecha":  "2026-08-22",
+                      "saldo_inicial":  3589000,
+                      "cuota":  200000,
+                      "interes":  0,
+                      "saldo_final":  3389000,
+                      "estado":  null,
+                      "abono":  0
+                  },
+                  {
+                      "num":  5,
+                      "fecha":  "2026-09-22",
+                      "saldo_inicial":  3389000,
+                      "cuota":  200000,
+                      "interes":  0,
+                      "saldo_final":  3189000,
+                      "estado":  null,
+                      "abono":  0
+                  },
+                  {
+                      "num":  6,
+                      "fecha":  "2026-10-22",
+                      "saldo_inicial":  3189000,
+                      "cuota":  200000,
+                      "interes":  0,
+                      "saldo_final":  2989000,
+                      "estado":  null,
+                      "abono":  0
+                  },
+                  {
+                      "num":  7,
+                      "fecha":  "2026-11-22",
+                      "saldo_inicial":  2989000,
+                      "cuota":  200000,
+                      "interes":  0,
+                      "saldo_final":  2789000,
+                      "estado":  null,
+                      "abono":  0
+                  },
+                  {
+                      "num":  8,
+                      "fecha":  "2026-12-22",
+                      "saldo_inicial":  2789000,
+                      "cuota":  200000,
+                      "interes":  0,
+                      "saldo_final":  2589000,
+                      "estado":  null,
+                      "abono":  0
+                  },
+                  {
+                      "num":  9,
+                      "fecha":  "2027-01-22",
+                      "saldo_inicial":  2589000,
+                      "cuota":  200000,
+                      "interes":  0,
+                      "saldo_final":  2389000,
+                      "estado":  null,
+                      "abono":  0
+                  },
+                  {
+                      "num":  10,
+                      "fecha":  "2027-02-22",
+                      "saldo_inicial":  2389000,
+                      "cuota":  200000,
+                      "interes":  0,
+                      "saldo_final":  2189000,
+                      "estado":  null,
+                      "abono":  0
+                  },
+                  {
+                      "num":  11,
+                      "fecha":  "2027-03-22",
+                      "saldo_inicial":  2189000,
+                      "cuota":  200000,
+                      "interes":  0,
+                      "saldo_final":  1989000,
+                      "estado":  null,
+                      "abono":  0
+                  },
+                  {
+                      "num":  12,
+                      "fecha":  "2027-04-22",
+                      "saldo_inicial":  1989000,
+                      "cuota":  200000,
+                      "interes":  0,
+                      "saldo_final":  1789000,
+                      "estado":  null,
+                      "abono":  0
+                  },
+                  {
+                      "num":  13,
+                      "fecha":  "2027-05-22",
+                      "saldo_inicial":  1789000,
+                      "cuota":  200000,
+                      "interes":  0,
+                      "saldo_final":  1589000,
+                      "estado":  null,
+                      "abono":  0
+                  },
+                  {
+                      "num":  14,
+                      "fecha":  "2027-06-22",
+                      "saldo_inicial":  1589000,
+                      "cuota":  200000,
+                      "interes":  0,
+                      "saldo_final":  1389000,
+                      "estado":  null,
+                      "abono":  0
+                  },
+                  {
+                      "num":  15,
+                      "fecha":  "2027-07-22",
+                      "saldo_inicial":  1389000,
+                      "cuota":  200000,
+                      "interes":  0,
+                      "saldo_final":  1189000,
+                      "estado":  null,
+                      "abono":  0
+                  },
+                  {
+                      "num":  16,
+                      "fecha":  "2027-08-22",
+                      "saldo_inicial":  1189000,
+                      "cuota":  200000,
+                      "interes":  0,
+                      "saldo_final":  989000,
+                      "estado":  null,
+                      "abono":  0
+                  },
+                  {
+                      "num":  17,
+                      "fecha":  "2027-09-22",
+                      "saldo_inicial":  989000,
+                      "cuota":  200000,
+                      "interes":  0,
+                      "saldo_final":  789000,
+                      "estado":  null,
+                      "abono":  0
+                  },
+                  {
+                      "num":  18,
+                      "fecha":  "2027-10-22",
+                      "saldo_inicial":  789000,
+                      "cuota":  200000,
+                      "interes":  0,
+                      "saldo_final":  589000,
+                      "estado":  null,
+                      "abono":  0
+                  },
+                  {
+                      "num":  19,
+                      "fecha":  "2027-11-22",
+                      "saldo_inicial":  589000,
+                      "cuota":  200000,
+                      "interes":  0,
+                      "saldo_final":  389000,
+                      "estado":  null,
+                      "abono":  0
+                  },
+                  {
+                      "num":  20,
+                      "fecha":  "2027-12-22",
+                      "saldo_inicial":  389000,
+                      "cuota":  200000,
+                      "interes":  0,
+                      "saldo_final":  189000,
+                      "estado":  null,
+                      "abono":  0
+                  },
+                  {
+                      "num":  21,
+                      "fecha":  "2028-01-22",
+                      "saldo_inicial":  189000,
+                      "cuota":  200000,
+                      "interes":  0,
+                      "saldo_final":  -11000,
+                      "estado":  null,
+                      "abono":  0
+                  },
+                  {
+                      "num":  22,
+                      "fecha":  "2028-02-22",
+                      "saldo_inicial":  -11000,
+                      "cuota":  200000,
+                      "interes":  0,
+                      "saldo_final":  -211000,
+                      "estado":  null,
+                      "abono":  0
+                  },
+                  {
+                      "num":  23,
+                      "fecha":  "2028-03-22",
+                      "saldo_inicial":  -211000,
+                      "cuota":  200000,
+                      "interes":  0,
+                      "saldo_final":  -411000,
+                      "estado":  null,
+                      "abono":  0
+                  },
+                  {
+                      "num":  24,
+                      "fecha":  "2028-04-22",
+                      "saldo_inicial":  -411000,
+                      "cuota":  200000,
+                      "interes":  0,
+                      "saldo_final":  -611000,
+                      "estado":  null,
+                      "abono":  0
+                  },
+                  {
+                      "num":  25,
+                      "fecha":  "2028-05-22",
+                      "saldo_inicial":  -611000,
+                      "cuota":  200000,
+                      "interes":  0,
+                      "saldo_final":  -811000,
+                      "estado":  null,
+                      "abono":  0
+                  }
+              ],
+    "Credito":  [
+                    {
+                        "num":  1,
+                        "fecha":  "2026-05-22",
+                        "saldo_inicial":  8924304,
+                        "cuota":  185923,
+                        "interes":  154390.45919999998,
+                        "saldo_final":  8738381,
+                        "estado":  "PAGADO",
+                        "abono":  0
+                    },
+                    {
+                        "num":  2,
+                        "fecha":  "2026-06-22",
+                        "saldo_inicial":  8738381,
+                        "cuota":  185923,
+                        "interes":  151173.9913,
+                        "saldo_final":  8552458,
+                        "estado":  "PAGADO",
+                        "abono":  0
+                    },
+                    {
+                        "num":  3,
+                        "fecha":  "2026-07-22",
+                        "saldo_inicial":  8552458,
+                        "cuota":  185923,
+                        "interes":  147957.5234,
+                        "saldo_final":  8366535,
+                        "estado":  "PAGADO",
+                        "abono":  0
+                    },
+                    {
+                        "num":  4,
+                        "fecha":  "2026-08-22",
+                        "saldo_inicial":  8366535,
+                        "cuota":  185923,
+                        "interes":  144741.0555,
+                        "saldo_final":  7680612,
+                        "estado":  "PAGADO",
+                        "abono":  500000
+                    },
+                    {
+                        "num":  5,
+                        "fecha":  "2026-09-22",
+                        "saldo_inicial":  7680612,
+                        "cuota":  185923,
+                        "interes":  132874.5876,
+                        "saldo_final":  7494689,
+                        "estado":  "PAGADO",
+                        "abono":  0
+                    },
+                    {
+                        "num":  6,
+                        "fecha":  "2026-10-22",
+                        "saldo_inicial":  7494689,
+                        "cuota":  185923,
+                        "interes":  129658.1197,
+                        "saldo_final":  7308766,
+                        "estado":  "PAGADO",
+                        "abono":  0
+                    },
+                    {
+                        "num":  7,
+                        "fecha":  "2026-11-22",
+                        "saldo_inicial":  7308766,
+                        "cuota":  185923,
+                        "interes":  126441.65179999999,
+                        "saldo_final":  7122843,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  8,
+                        "fecha":  "2026-12-22",
+                        "saldo_inicial":  7122843,
+                        "cuota":  185923,
+                        "interes":  123225.18389999999,
+                        "saldo_final":  6936920,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  9,
+                        "fecha":  "2027-01-22",
+                        "saldo_inicial":  6936920,
+                        "cuota":  185923,
+                        "interes":  120008.716,
+                        "saldo_final":  6750997,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  10,
+                        "fecha":  "2027-02-22",
+                        "saldo_inicial":  6750997,
+                        "cuota":  185923,
+                        "interes":  116792.2481,
+                        "saldo_final":  6565074,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  11,
+                        "fecha":  "2027-03-22",
+                        "saldo_inicial":  6565074,
+                        "cuota":  185923,
+                        "interes":  113575.7802,
+                        "saldo_final":  6379151,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  12,
+                        "fecha":  "2027-04-22",
+                        "saldo_inicial":  6379151,
+                        "cuota":  185923,
+                        "interes":  110359.31229999999,
+                        "saldo_final":  6193228,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  13,
+                        "fecha":  "2027-05-22",
+                        "saldo_inicial":  6193228,
+                        "cuota":  185923,
+                        "interes":  107142.8444,
+                        "saldo_final":  6007305,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  14,
+                        "fecha":  "2027-06-22",
+                        "saldo_inicial":  6007305,
+                        "cuota":  185923,
+                        "interes":  103926.3765,
+                        "saldo_final":  5821382,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  15,
+                        "fecha":  "2027-07-22",
+                        "saldo_inicial":  5821382,
+                        "cuota":  185923,
+                        "interes":  100709.9086,
+                        "saldo_final":  5635459,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  16,
+                        "fecha":  "2027-08-22",
+                        "saldo_inicial":  5635459,
+                        "cuota":  185923,
+                        "interes":  97493.440699999992,
+                        "saldo_final":  5449536,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  17,
+                        "fecha":  "2027-09-22",
+                        "saldo_inicial":  5449536,
+                        "cuota":  185923,
+                        "interes":  94276.9728,
+                        "saldo_final":  5263613,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  18,
+                        "fecha":  "2027-10-22",
+                        "saldo_inicial":  5263613,
+                        "cuota":  185923,
+                        "interes":  91060.5049,
+                        "saldo_final":  5077690,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  19,
+                        "fecha":  "2027-11-22",
+                        "saldo_inicial":  5077690,
+                        "cuota":  185923,
+                        "interes":  87844.037,
+                        "saldo_final":  4891767,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  20,
+                        "fecha":  "2027-12-22",
+                        "saldo_inicial":  4891767,
+                        "cuota":  185923,
+                        "interes":  84627.5691,
+                        "saldo_final":  4705844,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  21,
+                        "fecha":  "2028-01-22",
+                        "saldo_inicial":  4705844,
+                        "cuota":  185923,
+                        "interes":  81411.10119999999,
+                        "saldo_final":  4519921,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  22,
+                        "fecha":  "2028-02-22",
+                        "saldo_inicial":  4519921,
+                        "cuota":  185923,
+                        "interes":  78194.6333,
+                        "saldo_final":  4333998,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  23,
+                        "fecha":  "2028-03-22",
+                        "saldo_inicial":  4333998,
+                        "cuota":  185923,
+                        "interes":  74978.1654,
+                        "saldo_final":  4148075,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  24,
+                        "fecha":  "2028-04-22",
+                        "saldo_inicial":  4148075,
+                        "cuota":  185923,
+                        "interes":  71761.6975,
+                        "saldo_final":  3962152,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  25,
+                        "fecha":  "2028-05-22",
+                        "saldo_inicial":  3962152,
+                        "cuota":  185923,
+                        "interes":  68545.229599999991,
+                        "saldo_final":  3776229,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  26,
+                        "fecha":  "2028-06-22",
+                        "saldo_inicial":  3776229,
+                        "cuota":  185923,
+                        "interes":  65328.761699999995,
+                        "saldo_final":  3590306,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  27,
+                        "fecha":  "2028-07-22",
+                        "saldo_inicial":  3590306,
+                        "cuota":  185923,
+                        "interes":  62112.2938,
+                        "saldo_final":  3404383,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  28,
+                        "fecha":  "2028-08-22",
+                        "saldo_inicial":  3404383,
+                        "cuota":  185923,
+                        "interes":  58895.825899999996,
+                        "saldo_final":  3218460,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  29,
+                        "fecha":  "2028-09-22",
+                        "saldo_inicial":  3218460,
+                        "cuota":  185923,
+                        "interes":  55679.358,
+                        "saldo_final":  3032537,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  30,
+                        "fecha":  "2028-10-22",
+                        "saldo_inicial":  3032537,
+                        "cuota":  185923,
+                        "interes":  52462.8901,
+                        "saldo_final":  2846614,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  31,
+                        "fecha":  "2028-11-22",
+                        "saldo_inicial":  2846614,
+                        "cuota":  185923,
+                        "interes":  49246.4222,
+                        "saldo_final":  2660691,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  32,
+                        "fecha":  "2028-12-22",
+                        "saldo_inicial":  2660691,
+                        "cuota":  185923,
+                        "interes":  46029.9543,
+                        "saldo_final":  2474768,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  33,
+                        "fecha":  "2029-01-22",
+                        "saldo_inicial":  2474768,
+                        "cuota":  185923,
+                        "interes":  42813.4864,
+                        "saldo_final":  2288845,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  34,
+                        "fecha":  "2029-02-22",
+                        "saldo_inicial":  2288845,
+                        "cuota":  185923,
+                        "interes":  39597.0185,
+                        "saldo_final":  2102922,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  35,
+                        "fecha":  "2029-03-22",
+                        "saldo_inicial":  2102922,
+                        "cuota":  185923,
+                        "interes":  36380.5506,
+                        "saldo_final":  1916999,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  36,
+                        "fecha":  "2029-04-22",
+                        "saldo_inicial":  1916999,
+                        "cuota":  185923,
+                        "interes":  33164.0827,
+                        "saldo_final":  1731076,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  37,
+                        "fecha":  "2029-05-22",
+                        "saldo_inicial":  1731076,
+                        "cuota":  185923,
+                        "interes":  29947.6148,
+                        "saldo_final":  1545153,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  38,
+                        "fecha":  "2029-06-22",
+                        "saldo_inicial":  1545153,
+                        "cuota":  185923,
+                        "interes":  26731.1469,
+                        "saldo_final":  1359230,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  39,
+                        "fecha":  "2029-07-22",
+                        "saldo_inicial":  1359230,
+                        "cuota":  185923,
+                        "interes":  23514.679,
+                        "saldo_final":  1173307,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  40,
+                        "fecha":  "2029-08-22",
+                        "saldo_inicial":  1173307,
+                        "cuota":  185923,
+                        "interes":  20298.2111,
+                        "saldo_final":  987384,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  41,
+                        "fecha":  "2029-09-22",
+                        "saldo_inicial":  987384,
+                        "cuota":  185923,
+                        "interes":  17081.7432,
+                        "saldo_final":  801461,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  42,
+                        "fecha":  "2029-10-22",
+                        "saldo_inicial":  801461,
+                        "cuota":  185923,
+                        "interes":  13865.2753,
+                        "saldo_final":  615538,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  43,
+                        "fecha":  "2029-11-22",
+                        "saldo_inicial":  615538,
+                        "cuota":  185923,
+                        "interes":  10648.8074,
+                        "saldo_final":  429615,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  44,
+                        "fecha":  "2029-12-22",
+                        "saldo_inicial":  429615,
+                        "cuota":  185923,
+                        "interes":  7432.3395,
+                        "saldo_final":  243692,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  45,
+                        "fecha":  "2030-01-22",
+                        "saldo_inicial":  243692,
+                        "cuota":  185923,
+                        "interes":  4215.8715999999995,
+                        "saldo_final":  57769,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  46,
+                        "fecha":  "2030-02-22",
+                        "saldo_inicial":  57769,
+                        "cuota":  185923,
+                        "interes":  999.4037,
+                        "saldo_final":  -128154,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  47,
+                        "fecha":  "2030-03-22",
+                        "saldo_inicial":  -128154,
+                        "cuota":  185923,
+                        "interes":  -2217.0642,
+                        "saldo_final":  -314077,
+                        "estado":  null,
+                        "abono":  0
+                    },
+                    {
+                        "num":  48,
+                        "fecha":  "2030-04-22",
+                        "saldo_inicial":  -314077,
+                        "cuota":  185923,
+                        "interes":  -5433.5320999999994,
+                        "saldo_final":  -500000,
+                        "estado":  null,
+                        "abono":  0
+                    }
+                ]
+}
+;

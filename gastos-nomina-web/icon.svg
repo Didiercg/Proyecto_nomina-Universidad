@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b132b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="walletGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0ea5e9"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="12" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Fondo base -->
+  <rect width="512" height="512" fill="url(#bgGrad)"/>
+
+  <!-- Contenedor redondeado tipo App Icon -->
+  <rect x="32" y="32" width="448" height="448" rx="100" ry="100" fill="url(#cardGrad)" stroke="#10b981" stroke-width="10"/>
+
+  <!-- Sombra y resplandor de la billetera -->
+  <g filter="url(#glow)">
+    <!-- Cuerpo de la billetera -->
+    <rect x="110" y="150" width="292" height="212" rx="40" ry="40" fill="url(#walletGrad)"/>
+    
+    <!-- Bolsillo frontal / solapa -->
+    <path d="M 110,210 Q 256,230 402,210 L 402,322 Q 402,362 362,362 L 150,362 Q 110,362 110,322 Z" fill="#0284c7" opacity="0.6"/>
+
+    <!-- Pestaña / Broche -->
+    <rect x="300" y="222" width="102" height="68" rx="20" ry="20" fill="#0f172a" stroke="#10b981" stroke-width="4"/>
+    <circle cx="360" cy="256" r="14" fill="#fbbf24"/>
+
+    <!-- Signo de Dinero / Moneda -->
+    <circle cx="210" cy="256" r="42" fill="#0f172a" opacity="0.75"/>
+    <text x="210" y="278" font-family="system-ui, -apple-system, sans-serif" font-size="64" font-weight="900" fill="#38bdf8" text-anchor="middle">$</text>
+  </g>
+</svg>
