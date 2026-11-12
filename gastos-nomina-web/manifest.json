@@ -3,8 +3,8 @@
   "name": "Nómina & Finanzas Personales",
   "short_name": "Finanzas",
   "description": "Control de gastos, nómina, presupuesto, gasolina y amortización de deudas",
-  "start_url": "./index.html",
-  "scope": "./",
+  "start_url":  "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#0b132b",
@@ -36,28 +36,28 @@
       "name": "⚡ Modo Calle (Rápido)",
       "short_name": "Modo Calle",
       "description": "Registra un café, almuerzo, pasaje o imprevisto al instante",
-      "url": "./index.html?action=calle",
+      "url": "/?action=calle",
       "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "➕ Nuevo Gasto / Ingreso",
       "short_name": "+ Gasto",
       "description": "Registrar nuevo movimiento detallado",
-      "url": "./index.html?action=nuevo",
+      "url": "/?action=nuevo",
       "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "💳 Consolidado de Deudas",
       "short_name": "Deudas",
       "description": "Ver tablas de amortización y saldo pendiente",
-      "url": "./index.html?action=deudas",
+      "url": "/?action=deudas",
       "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "⛽ Tanqueo Gasolina",
       "short_name": "Tanqueo",
       "description": "Ver control mensual de combustible",
-      "url": "./index.html?action=tanqueo",
+      "url": "/?action=tanqueo",
       "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
     }
   ]
