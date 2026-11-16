@@ -150,7 +150,7 @@ export const state = {
   selectedMes: 'Noviembre',
   selectedAno: 2026,
   consolidadoAno: 2026,
-  compararModo: 'meses', // 'meses' o 'anos'
+  compararModo: 'meses',
   compararMes1: 'Octubre',
 
   // Estados del Módulo Universidad
@@ -210,7 +210,7 @@ export function formatNumber(val) {
 // ==========================================================
 
 export async function initSupabase() {
-  // 1. Cargar SIEMPRE primero todos los ajustes locales del usuario (quincenas, metas, devengado, gastos fijos)
+  // 1. Cargar SIEMPRE primero los datos locales del dispositivo
   cargarDatosLocales();
 
   const url = state.supabaseUrl || DEFAULT_SUPABASE_URL;
@@ -220,34 +220,32 @@ export async function initSupabase() {
     try {
       const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
       supabaseClient = createClient(url, key);
-      
-      const { data, error } = await supabaseClient.from('registro').select('id').limit(1);
+
+      const { error } = await supabaseClient.from('registro').select('id').limit(1);
       if (!error) {
         state.isConnectedToSupabase = true;
         updateSupabaseStatusUI(true);
         await cargarDatosDesdeSupabase();
 
-        // Suscripción en tiempo real a cambios de otros dispositivos
-supabaseClient
-  .channel('cambios-globales')
-  .on(
-    'postgres_changes',
-    { event: '*', schema: 'public', table: 'app_config' },
-    async () => {
-      await cargarDatosDesdeSupabase();
-      if (typeof actualizarTodaLaApp === 'function') actualizarTodaLaApp();
-    }
-  )
-  .on(
-    'postgres_changes',
-    { event: '*', schema: 'public', table: 'registro' },
-    async () => {
-      await cargarDatosDesdeSupabase();
-      if (typeof actualizarTodaLaApp === 'function') actualizarTodaLaApp();
-    }
-  )
-  .subscribe();
-        
+        // Suscripción en tiempo real a cambios desde otro dispositivo
+        supabaseClient
+          .channel('cambios-globales')
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'app_config' },
+            async () => {
+              await cargarDatosDesdeSupabase(true);
+            }
+          )
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'registro' },
+            async () => {
+              await cargarDatosDesdeSupabase(true);
+            }
+          )
+          .subscribe();
+
         return;
       } else {
         console.warn('Error Supabase:', error.message);
@@ -263,11 +261,9 @@ supabaseClient
     state.isConnectedToSupabase = false;
     updateSupabaseStatusUI(false);
   }
-
-  cargarDatosLocales();
 }
 
-function updateSupabaseStatusUI(connected, errorMsg = '') {
+function updateSupabaseStatusUI(connected) {
   const badge = document.getElementById('supabaseStatusBadge');
   const text = document.getElementById('supabaseStatusText');
   const dot = document.getElementById('supabaseStatusDot');
@@ -292,8 +288,8 @@ export function normalizarClave(texto) {
   return String(texto)
     .trim()
     .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, ""); // Remueve tildes: ej. crédito -> credito
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 }
 
 export function getAmortizacionSchedule(deudaOrId) {
@@ -302,10 +298,9 @@ export function getAmortizacionSchedule(deudaOrId) {
   let id = typeof deudaOrId === 'object' ? deudaOrId.id : deudaOrId;
   let nombre = typeof deudaOrId === 'object' ? deudaOrId.nombre : null;
 
-  // Si pasaron solo un id/nombre como string, buscar la deuda en state.deudas para tener ambos datos
   if (!nombre && state && state.deudas) {
-    const dEncontrada = state.deudas.find(d => 
-      d.id === id || 
+    const dEncontrada = state.deudas.find(d =>
+      d.id === id ||
       normalizarClave(d.nombre) === normalizarClave(id) ||
       normalizarClave(d.id) === normalizarClave(id)
     );
@@ -315,17 +310,14 @@ export function getAmortizacionSchedule(deudaOrId) {
     }
   }
 
-  // 1. Coincidencia directa por id
   if (id && state.amortizaciones && state.amortizaciones[id] && Array.isArray(state.amortizaciones[id])) {
     return state.amortizaciones[id];
   }
 
-  // 2. Coincidencia directa por nombre
   if (nombre && state.amortizaciones && state.amortizaciones[nombre] && Array.isArray(state.amortizaciones[nombre])) {
     return state.amortizaciones[nombre];
   }
 
-  // 3. Coincidencia normalizada (sin tildes ni mayúsculas) en state.amortizaciones
   const targets = [normalizarClave(nombre), normalizarClave(id)].filter(Boolean);
   if (state.amortizaciones) {
     for (const [clave, cuotas] of Object.entries(state.amortizaciones)) {
@@ -337,7 +329,6 @@ export function getAmortizacionSchedule(deudaOrId) {
       }
     }
 
-    // 4. Coincidencia por palabra clave semántica (moto, tablet, madre, credito)
     for (const t of targets) {
       if (t.includes('moto') && (state.amortizaciones['Moto'] || DEUDAS_AMORTIZACION['Moto'])) {
         return state.amortizaciones['Moto'] || DEUDAS_AMORTIZACION['Moto'];
@@ -363,7 +354,6 @@ export function getAmortizacionSchedule(deudaOrId) {
     }
   }
 
-  // 5. Fallback a DEUDAS_AMORTIZACION predeterminada
   for (const t of targets) {
     if (t.includes('moto') && DEUDAS_AMORTIZACION['Moto']) return DEUDAS_AMORTIZACION['Moto'];
     if (t.includes('tab') && DEUDAS_AMORTIZACION['Tablet']) return DEUDAS_AMORTIZACION['Tablet'];
@@ -386,20 +376,20 @@ export function getAmortizacionSchedule(deudaOrId) {
   return [];
 }
 
-function cargarDatosLocales() {
-  const local = localStorage.getItem('local_records');
-  if (local) {
-    try {
-      state.records = JSON.parse(local);
-    } catch (e) {
-      state.records = [...INITIAL_RECORDS];
-    }
-  } else {
-    state.records = [...INITIAL_RECORDS];
+function safeParse(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw || raw === 'undefined' || raw === 'null') return fallback;
+    return JSON.parse(raw);
+  } catch (e) {
+    return fallback;
   }
+}
 
-  const localAceite = localStorage.getItem('local_aceite');
-  const rawAceite = localAceite ? JSON.parse(localAceite) : [...INITIAL_ACEITE];
+function cargarDatosLocales() {
+  state.records = safeParse('local_records', [...INITIAL_RECORDS]);
+
+  const rawAceite = safeParse('local_aceite', [...INITIAL_ACEITE]);
   const seenAceiteLoc = new Set();
   state.cambiosAceite = rawAceite.filter(a => {
     const sig = `${a.fecha}_${Number(a.kilometraje)}`;
@@ -408,21 +398,13 @@ function cargarDatosLocales() {
     return true;
   });
 
-  const localDeudas = localStorage.getItem('local_deudas');
-  state.deudas = localDeudas ? JSON.parse(localDeudas) : [...INITIAL_DEUDAS];
+  state.deudas = safeParse('local_deudas', [...INITIAL_DEUDAS]);
 
-  const localAmort = localStorage.getItem('local_amortizaciones');
-  if (localAmort) {
-    try {
-      state.amortizaciones = { ...DEUDAS_AMORTIZACION, ...JSON.parse(localAmort) };
-    } catch(e) {
-      state.amortizaciones = { ...DEUDAS_AMORTIZACION };
-    }
-  } else {
-    state.amortizaciones = { ...DEUDAS_AMORTIZACION };
-  }
+  const parsedAmort = safeParse('local_amortizaciones', null);
+  state.amortizaciones = parsedAmort
+    ? { ...DEUDAS_AMORTIZACION, ...parsedAmort }
+    : { ...DEUDAS_AMORTIZACION };
 
-  // Vincular schedules a cada deuda existente (incluyendo por su ID/UUID y nombre)
   state.deudas.forEach(d => {
     const sched = getAmortizacionSchedule(d);
     if (sched && sched.length > 0) {
@@ -432,56 +414,17 @@ function cargarDatosLocales() {
     }
   });
 
-  const localGF = localStorage.getItem('local_gastos_fijos');
-  if (localGF) {
-    try {
-      state.gastosFijos = JSON.parse(localGF);
-    } catch (e) {
-      state.gastosFijos = [...INITIAL_GASTOS_FIJOS];
-    }
-  } else {
-    state.gastosFijos = [...INITIAL_GASTOS_FIJOS];
-  }
+  state.gastosFijos = safeParse('local_gastos_fijos', [...INITIAL_GASTOS_FIJOS]);
+  state.devengadoData = safeParse('local_devengado', JSON.parse(JSON.stringify(INITIAL_DEVENGADO)));
+  state.loteItems = sanitizeLoteItems(safeParse('local_lote_items', null));
 
-  const localDev = localStorage.getItem('local_devengado');
-  if (localDev) {
-    try {
-      state.devengadoData = JSON.parse(localDev);
-    } catch (e) {
-      state.devengadoData = JSON.parse(JSON.stringify(INITIAL_DEVENGADO));
-    }
-  } else {
-    state.devengadoData = JSON.parse(JSON.stringify(INITIAL_DEVENGADO));
-  }
-
-  const localLote = localStorage.getItem('local_lote_items');
-  if (localLote) {
-    try {
-      state.loteItems = sanitizeLoteItems(JSON.parse(localLote));
-    } catch (e) {
-      state.loteItems = sanitizeLoteItems(null);
-    }
-  } else {
-    state.loteItems = sanitizeLoteItems(null);
-  }
-
-  const localMetas = localStorage.getItem('local_metas_ahorro');
-  if (localMetas) {
-    try {
-      const parsed = JSON.parse(localMetas);
-      // Si contiene las metas demo iniciales de prueba (meta_1 o SOAT), resetear para empezar limpio
-      const esDemoAntiguo = Array.isArray(parsed) && parsed.some(m => m && (m.id === 'meta_1' || (m.nombre && m.nombre.includes('SOAT'))));
-      if (esDemoAntiguo) {
-        state.metasAhorro = [];
-        localStorage.removeItem('local_metas_ahorro');
-      } else {
-        state.metasAhorro = parsed;
-      }
-    } catch (e) {
-      state.metasAhorro = [];
-    }
-  } else {
+  const parsedMetas = safeParse('local_metas_ahorro', []);
+  const esDemoAntiguo = Array.isArray(parsedMetas) && parsedMetas.some(m => m && (m.id === 'meta_1' || (m.nombre && m.nombre.includes('SOAT'))));
+  if (esDemoAntiguo) {
     state.metasAhorro = [];
+    localStorage.removeItem('local_metas_ahorro');
+  } else {
+    state.metasAhorro = parsedMetas;
   }
 
   const savedPpto = localStorage.getItem('local_ppto_variables');
@@ -506,7 +449,6 @@ function cargarDatosLocales() {
   const savedSim = localStorage.getItem('local_monto_simulador');
   if (savedSim !== null) state.montoSimuladorDeudas = Number(savedSim) || 200000;
 
-  // Actualizar Sueldo Quincenal en lote si tenía el valor previo de 750.000
   if (state.loteItems && state.loteItems.ingresos) {
     state.loteItems.ingresos.forEach(item => {
       if (item.concepto && item.concepto.toLowerCase().includes('sueldo quincenal') && (item.ppto === 750000 || !item.ppto)) {
@@ -515,26 +457,8 @@ function cargarDatosLocales() {
     });
   }
 
-  // Cargar datos del Módulo Universidad
-  const localUni = localStorage.getItem('local_universidad_data');
-  if (localUni) {
-    try {
-      state.universidadData = JSON.parse(localUni);
-    } catch (e) {
-      state.universidadData = JSON.parse(JSON.stringify(INITIAL_UNIVERSIDAD_DATA));
-    }
-  } else {
-    state.universidadData = JSON.parse(JSON.stringify(INITIAL_UNIVERSIDAD_DATA));
-  }
-
-  const localCalc = localStorage.getItem('local_calculadora_rows');
-  if (localCalc) {
-    try {
-      state.calculadoraRows = JSON.parse(localCalc);
-    } catch (e) {
-      state.calculadoraRows = JSON.parse(JSON.stringify(INITIAL_CALCULADORA_ROWS));
-    }
-  }
+  state.universidadData = safeParse('local_universidad_data', JSON.parse(JSON.stringify(INITIAL_UNIVERSIDAD_DATA)));
+  state.calculadoraRows = safeParse('local_calculadora_rows', JSON.parse(JSON.stringify(INITIAL_CALCULADORA_ROWS)));
 
   const localActiveSem = localStorage.getItem('local_active_semestre');
   if (localActiveSem) state.activeSemestreId = localActiveSem;
@@ -543,40 +467,44 @@ function cargarDatosLocales() {
 }
 
 export function guardarEnLocalStorage() {
-  const configPayload = {
-    ingresoQuincena1: state.ingresoQuincena1,
-    ingresoQuincena2: state.ingresoQuincena2,
-    pptoVariablesMes: state.pptoVariablesMes,
-    deudas: state.deudas,
-    gastosFijos: state.gastosFijos,
-    devengado: state.devengado,
-    loteItems: state.loteItems,
-    aceiteRegistros: state.aceiteRegistros,
-    universidadData: state.universidadData,
-    calculadoraRows: state.calculadoraRows,
-    calculadoraMeta: state.calculadoraMeta
+  const payload = {
+    cambiosAceite: state.cambiosAceite || [],
+    deudas: state.deudas || [],
+    amortizaciones: state.amortizaciones || {},
+    gastosFijos: state.gastosFijos || [],
+    devengadoData: state.devengadoData || INITIAL_DEVENGADO,
+    loteItems: state.loteItems || sanitizeLoteItems(null),
+    metasAhorro: state.metasAhorro || [],
+    pptoVariablesMes: state.pptoVariablesMes ?? 350000,
+    ingresoQuincena1: state.ingresoQuincena1 ?? 900000,
+    ingresoQuincena2: state.ingresoQuincena2 ?? 900000,
+    montoSimuladorDeudas: state.montoSimuladorDeudas ?? 200000,
+    universidadData: state.universidadData || [],
+    calculadoraRows: state.calculadoraRows || [],
+    calculadoraMeta: state.calculadoraMeta ?? 3.0
   };
 
-  // 1. Guardar en el dispositivo actual
-  localStorage.setItem('local_ingreso_q1', state.ingresoQuincena1);
-  localStorage.setItem('local_ingreso_q2', state.ingresoQuincena2);
-  localStorage.setItem('local_ppto_variables', state.pptoVariablesMes);
-  localStorage.setItem('local_deudas', JSON.stringify(state.deudas));
-  localStorage.setItem('local_gastos_fijos', JSON.stringify(state.gastosFijos));
-  localStorage.setItem('local_devengado', JSON.stringify(state.devengado));
-  localStorage.setItem('local_lote_items', JSON.stringify(state.loteItems));
-  localStorage.setItem('local_aceite', JSON.stringify(state.aceiteRegistros));
-  localStorage.setItem('local_universidad_data', JSON.stringify(state.universidadData));
-  localStorage.setItem('local_calc_rows', JSON.stringify(state.calculadoraRows));
-  localStorage.setItem('local_calc_meta', state.calculadoraMeta);
+  localStorage.setItem('local_records', JSON.stringify(state.records || []));
+  localStorage.setItem('local_aceite', JSON.stringify(payload.cambiosAceite));
+  localStorage.setItem('local_deudas', JSON.stringify(payload.deudas));
+  localStorage.setItem('local_amortizaciones', JSON.stringify(payload.amortizaciones));
+  localStorage.setItem('local_gastos_fijos', JSON.stringify(payload.gastosFijos));
+  localStorage.setItem('local_devengado', JSON.stringify(payload.devengadoData));
+  localStorage.setItem('local_lote_items', JSON.stringify(payload.loteItems));
+  localStorage.setItem('local_metas_ahorro', JSON.stringify(payload.metasAhorro));
+  localStorage.setItem('local_ppto_variables', payload.pptoVariablesMes);
+  localStorage.setItem('local_ingreso_q1', payload.ingresoQuincena1);
+  localStorage.setItem('local_ingreso_q2', payload.ingresoQuincena2);
+  localStorage.setItem('local_monto_simulador', payload.montoSimuladorDeudas);
+  localStorage.setItem('local_universidad_data', JSON.stringify(payload.universidadData));
+  localStorage.setItem('local_calculadora_rows', JSON.stringify(payload.calculadoraRows));
 
-  // 2. Sincronizar automáticamente hacia Supabase (para celular <-> PC)
   if (supabaseClient) {
     supabaseClient
       .from('app_config')
       .upsert({
         key: 'global_state',
-        value: configPayload,
+        value: payload,
         updated_at: new Date().toISOString()
       }, { onConflict: 'key' })
       .then(({ error }) => {
@@ -585,12 +513,12 @@ export function guardarEnLocalStorage() {
   }
 }
 
-export async function cargarDatosDesdeSupabase() {
+export async function cargarDatosDesdeSupabase(silencioso = false) {
   if (!supabaseClient) return;
   try {
-    showToast('Sincronizando con Supabase...', 'info');
+    if (!silencioso) showToast('Sincronizando con Supabase...', 'info');
 
-    // Cargar todos los registros paginados para no topar con el límite de 1000 de Supabase
+    // 1. Cargar movimientos de 'registro'
     let data = [];
     let offset = 0;
     const limit = 1000;
@@ -607,19 +535,7 @@ export async function cargarDatosDesdeSupabase() {
       offset += limit;
     }
 
-    // Dentro de cargarDatosDesdeSupabase()
-const { data: uniData, error: uniError } = await supabaseClient
-  .from('universidad_data')
-  .select('*')
-  .order('nombre_semestre', { ascending: true });
-
-if (!uniError && uniData && uniData.length > 0) {
-  state.universidadData = uniData;
-  localStorage.setItem('local_universidad_data', JSON.stringify(uniData));
-}
-
     if (data && data.length > 0) {
-      // Deduplicar en memoria para asegurar que la vista siempre esté limpia
       const seenSigs = new Set();
       state.records = data.filter(r => {
         const sig = `${r.fecha}_${r.tipo}_${r.categoria}_${r.concepto}_${r.presupuesto}_${r.monto}`;
@@ -627,10 +543,10 @@ if (!uniError && uniData && uniData.length > 0) {
         seenSigs.add(sig);
         return true;
       });
-      guardarEnLocalStorage();
-      showToast(`Se cargaron ${state.records.length} registros desde Supabase.`, 'success');
+      localStorage.setItem('local_records', JSON.stringify(state.records));
     }
 
+    // 2. Cargar cambios de aceite
     const { data: dataAceite } = await supabaseClient.from('cambio_aceite').select('*').order('fecha', { ascending: false });
     if (dataAceite && dataAceite.length > 0) {
       const seenAceite = new Set();
@@ -643,12 +559,12 @@ if (!uniError && uniData && uniData.length > 0) {
       localStorage.setItem('local_aceite', JSON.stringify(state.cambiosAceite));
     }
 
+    // 3. Cargar deudas de tabla 'deudas'
     const { data: dataDeudas } = await supabaseClient.from('deudas').select('*');
     if (dataDeudas && dataDeudas.length > 0) {
-      // Cruzar o actualizar deudas y vincular schedules
       dataDeudas.forEach(supDeuda => {
-        const idx = state.deudas.findIndex(d => 
-          d.id === supDeuda.id || 
+        const idx = state.deudas.findIndex(d =>
+          d.id === supDeuda.id ||
           normalizarClave(d.nombre) === normalizarClave(supDeuda.nombre)
         );
         if (idx !== -1) {
@@ -657,7 +573,6 @@ if (!uniError && uniData && uniData.length > 0) {
           state.deudas.push(supDeuda);
         }
 
-        // Vincular schedules a los UUIDs y nombres de Supabase
         const sched = getAmortizacionSchedule(supDeuda);
         if (sched && sched.length > 0) {
           state.amortizaciones[supDeuda.id] = sched;
@@ -665,28 +580,9 @@ if (!uniError && uniData && uniData.length > 0) {
           state.amortizaciones[normalizarClave(supDeuda.nombre)] = sched;
         }
       });
-      guardarEnLocalStorage();
     }
 
-    // Cargar datos académicos (Universidad) desde Supabase
-    try {
-      const { data: dataUni, error: errUni } = await supabaseClient.from('universidad_data').select('*');
-      if (!errUni && dataUni && dataUni.length > 0) {
-        state.universidadData = dataUni;
-        localStorage.setItem('local_universidad_data', JSON.stringify(state.universidadData));
-      }
-    } catch (eUni) {
-      console.warn('Tabla universidad_data pendiente o no disponible aún en Supabase:', eUni);
-    }
-
-    actualizarTodaLaApp();
-  } catch (err) {
-    console.error('Error al cargar datos desde Supabase:', err);
-    showToast('Error sincronizando con Supabase: ' + err.message, 'error');
-  }
-
-  // Descargar estado global (deudas marcadas, presupuestos, universidad) desde Supabase
-  try {
+    // 4. Descargar estado global (deudas marcadas, amortizaciones, presupuestos, universidad) desde app_config
     const { data: cfgRow, error: cfgErr } = await supabaseClient
       .from('app_config')
       .select('value')
@@ -699,23 +595,42 @@ if (!uniError && uniData && uniData.length > 0) {
       if (v.ingresoQuincena2 !== undefined) state.ingresoQuincena2 = v.ingresoQuincena2;
       if (v.pptoVariablesMes !== undefined) state.pptoVariablesMes = v.pptoVariablesMes;
       if (Array.isArray(v.deudas)) state.deudas = v.deudas;
+      if (v.amortizaciones) state.amortizaciones = { ...DEUDAS_AMORTIZACION, ...v.amortizaciones };
       if (Array.isArray(v.gastosFijos)) state.gastosFijos = v.gastosFijos;
-      if (v.devengado) state.devengado = v.devengado;
-      if (v.loteItems) state.loteItems = v.loteItems;
-      if (Array.isArray(v.aceiteRegistros)) state.aceiteRegistros = v.aceiteRegistros;
+      if (v.devengadoData) state.devengadoData = v.devengadoData;
+      if (v.loteItems) state.loteItems = sanitizeLoteItems(v.loteItems);
+      if (Array.isArray(v.metasAhorro)) state.metasAhorro = v.metasAhorro;
+      if (Array.isArray(v.cambiosAceite)) state.cambiosAceite = v.cambiosAceite;
       if (Array.isArray(v.universidadData)) state.universidadData = v.universidadData;
       if (Array.isArray(v.calculadoraRows)) state.calculadoraRows = v.calculadoraRows;
       if (v.calculadoraMeta !== undefined) state.calculadoraMeta = v.calculadoraMeta;
 
-      // Actualizar caché local del dispositivo con lo descargado de la nube
       localStorage.setItem('local_deudas', JSON.stringify(state.deudas));
+      localStorage.setItem('local_amortizaciones', JSON.stringify(state.amortizaciones));
       localStorage.setItem('local_gastos_fijos', JSON.stringify(state.gastosFijos));
-      localStorage.setItem('local_devengado', JSON.stringify(state.devengado));
+      localStorage.setItem('local_devengado', JSON.stringify(state.devengadoData));
       localStorage.setItem('local_lote_items', JSON.stringify(state.loteItems));
       localStorage.setItem('local_universidad_data', JSON.stringify(state.universidadData));
     }
-  } catch (e) {
-    console.warn('No se pudo leer app_config de Supabase:', e);
+
+    // 5. Fallback adicional desde universidad_data si existe
+    try {
+      const { data: dataUni, error: errUni } = await supabaseClient.from('universidad_data').select('*');
+      if (!errUni && dataUni && dataUni.length > 0 && (!cfgRow || !cfgRow.value || !cfgRow.value.universidadData)) {
+        state.universidadData = dataUni;
+        localStorage.setItem('local_universidad_data', JSON.stringify(state.universidadData));
+      }
+    } catch (eUni) {
+      // Ignorar si no existe tabla separada
+    }
+
+    actualizarTodaLaApp();
+    if (!silencioso && data && data.length > 0) {
+      showToast(`Sincronizado (${state.records.length} movimientos).`, 'success');
+    }
+  } catch (err) {
+    console.error('Error al cargar datos desde Supabase:', err);
+    if (!silencioso) showToast('Error sincronizando con Supabase: ' + err.message, 'error');
   }
 }
 
@@ -728,7 +643,6 @@ export async function sincronizarDatosInicialesASupabase() {
   try {
     showToast('Verificando registros existentes en Supabase...', 'info');
 
-    // 1. Consultar todos los registros ya existentes en Supabase para evitar duplicados
     let existentes = [];
     let offset = 0;
     const limit = 1000;
@@ -748,7 +662,6 @@ export async function sincronizarDatosInicialesASupabase() {
       existentes.map(r => `${r.fecha}_${r.tipo}_${r.categoria}_${r.concepto}_${Number(r.presupuesto) || 0}_${Number(r.monto) || 0}`)
     );
 
-    // 2. Filtrar únicamente los registros que NO existan en la nube
     const batch = state.records
       .filter(r => {
         const firma = `${r.fecha}_${r.tipo}_${r.categoria}_${r.concepto}_${Number(r.presupuesto) || 0}_${Number(r.monto) || 0}`;
@@ -766,11 +679,11 @@ export async function sincronizarDatosInicialesASupabase() {
       }));
 
     if (batch.length === 0) {
-      showToast(`Tu base de datos ya está completamente al día (${existentes.length} registros). No hay registros nuevos por subir.`, 'success');
+      showToast(`Tu base de datos ya está completamente al día (${existentes.length} registros).`, 'success');
       return;
     }
 
-    const confirmar = confirm(`Se encontraron ${batch.length} registros locales que aún no están en Supabase (de ${state.records.length} totales). ¿Deseas subirlos ahora?`);
+    const confirmar = confirm(`Se encontraron ${batch.length} registros locales que aún no están en Supabase. ¿Deseas subirlos ahora?`);
     if (!confirmar) return;
 
     showToast(`Subiendo ${batch.length} registros nuevos a Supabase...`, 'info');
@@ -782,7 +695,6 @@ export async function sincronizarDatosInicialesASupabase() {
       if (error) throw error;
     }
 
-    // Deduplicar cambios de aceite antes de sincronizar
     const seenSincAceite = new Set();
     const aceiteParaSync = (state.cambiosAceite || []).filter(a => {
       const sig = `${a.fecha}_${Number(a.kilometraje)}`;
@@ -799,8 +711,8 @@ export async function sincronizarDatosInicialesASupabase() {
       await supabaseClient.from('cambio_aceite').upsert(aceiteParaSync);
     }
 
-    showToast(`¡Éxito! Se migraron ${batch.length} registros a Supabase correctamente.`, 'success');
-    await cargarDatosDesdeSupabase();
+    showToast(`¡Éxito! Se migraron ${batch.length} registros a Supabase.`, 'success');
+    await cargarDatosDesdeSupabase(true);
   } catch (err) {
     console.error('Error migrando registros:', err);
     alert('Error al sincronizar con Supabase: ' + err.message);
@@ -844,11 +756,11 @@ export async function limpiarDuplicadosSupabase() {
     });
 
     if (toDeleteIds.length === 0) {
-      showToast('¡Perfecto! No se encontraron registros duplicados en tu base de datos.', 'success');
+      showToast('No se encontraron registros duplicados en tu base de datos.', 'success');
       return;
     }
 
-    const confirmar = confirm(`Se detectaron ${toDeleteIds.length} registros duplicados en Supabase. ¿Deseas eliminarlos y conservar solo 1 copia exacta de cada uno?`);
+    const confirmar = confirm(`Se detectaron ${toDeleteIds.length} registros duplicados en Supabase. ¿Deseas eliminarlos?`);
     if (!confirmar) return;
 
     showToast(`Eliminando ${toDeleteIds.length} duplicados...`, 'info');
@@ -864,7 +776,7 @@ export async function limpiarDuplicadosSupabase() {
     }
 
     showToast(`¡Limpieza completada! Se eliminaron ${toDeleteIds.length} duplicados.`, 'success');
-    await cargarDatosDesdeSupabase();
+    await cargarDatosDesdeSupabase(true);
   } catch (err) {
     console.error('Error limpiando duplicados:', err);
     showToast('Error al limpiar duplicados: ' + err.message, 'error');
@@ -911,7 +823,7 @@ export async function agregarRegistro(nuevo) {
       }
     } catch (e) {
       console.error('Error al guardar en Supabase:', e);
-      showToast('No se pudo guardar en Supabase, se guardó en copia local: ' + e.message, 'warning');
+      showToast('No se pudo guardar en Supabase, guardado en copia local: ' + e.message, 'warning');
     }
   }
 
@@ -1032,15 +944,20 @@ export function renderDashboard() {
   const difIngresos = ingresosReal - ingresosPpto;
   const difEgresos = egresosReal - egresosPpto;
 
-  document.getElementById('dashIngresosReal').textContent = formatCOP(ingresosReal);
-  document.getElementById('dashIngresosPpto').textContent = 'Ppto: ' + formatCOP(ingresosPpto);
-  document.getElementById('dashIngresosDif').textContent = 'Dif: ' + (difIngresos >= 0 ? '+' : '') + formatCOP(difIngresos);
+  const elIngReal = document.getElementById('dashIngresosReal');
+  if (elIngReal) elIngReal.textContent = formatCOP(ingresosReal);
+  const elIngPpto = document.getElementById('dashIngresosPpto');
+  if (elIngPpto) elIngPpto.textContent = 'Ppto: ' + formatCOP(ingresosPpto);
+  const elIngDif = document.getElementById('dashIngresosDif');
+  if (elIngDif) elIngDif.textContent = 'Dif: ' + (difIngresos >= 0 ? '+' : '') + formatCOP(difIngresos);
 
-  document.getElementById('dashEgresosReal').textContent = formatCOP(egresosReal);
-  document.getElementById('dashEgresosPpto').textContent = 'Ppto: ' + formatCOP(egresosPpto);
-  document.getElementById('dashEgresosDif').textContent = 'Dif: ' + (difEgresos <= 0 ? '' : '+') + formatCOP(difEgresos);
+  const elEgReal = document.getElementById('dashEgresosReal');
+  if (elEgReal) elEgReal.textContent = formatCOP(egresosReal);
+  const elEgPpto = document.getElementById('dashEgresosPpto');
+  if (elEgPpto) elEgPpto.textContent = 'Ppto: ' + formatCOP(egresosPpto);
+  const elEgDif = document.getElementById('dashEgresosDif');
+  if (elEgDif) elEgDif.textContent = 'Dif: ' + (difEgresos <= 0 ? '' : '+') + formatCOP(difEgresos);
 
-  // Barra gráfica del indicador general de Egresos vs Presupuesto
   const pctEgresos = egresosPpto > 0 ? (egresosReal / egresosPpto) * 100 : 0;
   const egresosBarEl = document.getElementById('dashEgresosProgressBar');
   const egresosPctEl = document.getElementById('dashEgresosPctText');
@@ -1067,8 +984,10 @@ export function renderDashboard() {
   }
 
   const saldoEl = document.getElementById('dashSaldoReal');
-  saldoEl.textContent = formatCOP(saldoReal);
-  saldoEl.className = 'text-2xl sm:text-3xl font-extrabold ' + (saldoReal >= 0 ? 'text-emerald-400' : 'text-rose-400');
+  if (saldoEl) {
+    saldoEl.textContent = formatCOP(saldoReal);
+    saldoEl.className = 'text-2xl sm:text-3xl font-extrabold ' + (saldoReal >= 0 ? 'text-emerald-400' : 'text-rose-400');
+  }
 
   renderTablaResumen('tablaResumenIngresos', CATEGORIAS_INGRESO, porCategoria);
   renderTablaResumen('tablaResumenEgresos', CATEGORIAS_EGRESO, porCategoria);
@@ -1186,27 +1105,23 @@ export function renderCentroAlertasFinancieras(mesRecords) {
   const container = document.getElementById('dashCentroAlertasContainer');
   if (!container) return;
 
-  // 1. Análisis de Cuotas de Deudas en el mes activo
   const totalCuotasDeudas = (state.deudas || []).reduce((acc, d) => acc + (Number(d.cuota_mensual) || 0), 0);
   const egresosDeudasMes = (mesRecords || []).filter(r => r.tipo === 'Egreso' && r.categoria === 'Deudas');
   const pagadoDeudasMes = egresosDeudasMes.reduce((acc, r) => acc + (Number(r.monto) || 0), 0);
   const pendienteDeudasMes = Math.max(0, totalCuotasDeudas - pagadoDeudasMes);
   const deudasCubiertas = totalCuotasDeudas > 0 && pagadoDeudasMes >= totalCuotasDeudas;
 
-  // 2. Mantenimiento Preventivo de Moto (Cambio de Aceite)
   const ultimoAceite = (state.cambiosAceite && state.cambiosAceite.length > 0) ? state.cambiosAceite[0] : null;
   const kmUltimo = ultimoAceite ? Number(ultimoAceite.kilometraje) || 0 : 0;
   const kmSugerido = kmUltimo > 0 ? kmUltimo + 3000 : 0;
 
-  // 3. Sobrante Proyectado Mensual
-  const ingresoTotalEsperado = (Number(state.ingresoQuincena1) || 750000) + (Number(state.ingresoQuincena2) || 750000);
+  const ingresoTotalEsperado = (Number(state.ingresoQuincena1) || 900000) + (Number(state.ingresoQuincena2) || 900000);
   const gastosFijosTotal = (state.gastosFijos || []).reduce((acc, gf) => acc + (Number(gf.presupuesto) || 0), 0);
   const variablesGastados = (mesRecords || []).filter(r => r.tipo === 'Egreso' && r.categoria === 'Gastos').reduce((acc, r) => acc + (Number(r.monto) || 0), 0);
   const sobranteProyectado = ingresoTotalEsperado - gastosFijosTotal - totalCuotasDeudas - variablesGastados;
 
   container.innerHTML = `
     <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-      <!-- ALERTA 1: COMPROMISOS DE DEUDA -->
       <div class="bg-slate-900/80 border ${deudasCubiertas ? 'border-emerald-600/40 bg-emerald-950/20' : 'border-indigo-600/40'} rounded-xl p-3 flex items-start gap-3 shadow-md">
         <div class="p-2 rounded-lg ${deudasCubiertas ? 'bg-emerald-500/20 text-emerald-400' : 'bg-indigo-500/20 text-indigo-400'} shrink-0 mt-0.5">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
@@ -1227,7 +1142,6 @@ export function renderCentroAlertasFinancieras(mesRecords) {
         </div>
       </div>
 
-      <!-- ALERTA 2: SOBRANTE PROYECTADO FIN DE MES -->
       <div class="bg-slate-900/80 border ${sobranteProyectado >= 0 ? 'border-emerald-600/40' : 'border-rose-600/40 bg-rose-950/20'} rounded-xl p-3 flex items-start gap-3 shadow-md">
         <div class="p-2 rounded-lg ${sobranteProyectado >= 0 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'} shrink-0 mt-0.5">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -1248,7 +1162,6 @@ export function renderCentroAlertasFinancieras(mesRecords) {
         </div>
       </div>
 
-      <!-- ALERTA 3: MANTENIMIENTO PREVENTIVO MOTO -->
       <div class="bg-slate-900/80 border border-amber-600/40 rounded-xl p-3 flex items-start gap-3 shadow-md">
         <div class="p-2 rounded-lg bg-amber-500/20 text-amber-400 shrink-0 mt-0.5">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
@@ -1271,7 +1184,7 @@ export function renderCentroAlertasFinancieras(mesRecords) {
 }
 
 // ==========================================================
-// 1. SEMÁFORO DE GASTOS VARIABLES (CONTROL GASTOS HORMIGA)
+// 1. SEMÁFORO DE GASTOS VARIABLES
 // ==========================================================
 export function renderSemaforoGastosVariables(mesRecords) {
   const container = document.getElementById('dashSemaforoVariablesContainer');
@@ -1325,16 +1238,13 @@ export function renderSemaforoGastosVariables(mesRecords) {
 
   container.innerHTML = `
     <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-3.5" style="border-color: ${badgeBorder}">
-      <!-- Encabezado con Semáforo Físico Tri-color y Configuración de Presupuesto -->
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
         <div class="flex items-center gap-3">
-          <!-- Widget Semáforo Físico (Verde / Amarillo / Rojo) -->
           <div class="flex items-center gap-1.5 p-1.5 rounded-xl bg-slate-950 border border-slate-800 shadow-inner">
             <span title="Verde (Saludable 0-70%)" style="width: 12px; height: 12px; border-radius: 50%; background-color: ${activoVerde ? '#10b981' : '#064e3b'}; box-shadow: ${activoVerde ? '0 0 8px #10b981' : 'none'}; display: inline-block; transition: all 0.3s;"></span>
             <span title="Amarillo (Precaución 70-90%)" style="width: 12px; height: 12px; border-radius: 50%; background-color: ${activoAmarillo ? '#f59e0b' : '#78350f'}; box-shadow: ${activoAmarillo ? '0 0 8px #f59e0b' : 'none'}; display: inline-block; transition: all 0.3s;"></span>
             <span title="Rojo (Alerta >90%)" style="width: 12px; height: 12px; border-radius: 50%; background-color: ${activoRojo ? '#ef4444' : '#7f1d1d'}; box-shadow: ${activoRojo ? '0 0 8px #ef4444' : 'none'}; display: inline-block; transition: all 0.3s;"></span>
           </div>
-
           <div>
             <h3 class="text-xs font-bold uppercase tracking-wider text-slate-100 flex items-center gap-1.5">
               <span>Semáforo de Gastos Variables & Hormiga</span>
@@ -1342,7 +1252,6 @@ export function renderSemaforoGastosVariables(mesRecords) {
             <p class="text-[11px] text-slate-400">Control visual de presupuesto, salidas y consumos imprevistos</p>
           </div>
         </div>
-
         <div class="flex items-center gap-2">
           <button onclick="window.editarPresupuestoVariables()" class="text-xs px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors flex items-center gap-1 font-mono shadow-sm">
             <span>⚙️ Ppto:</span>
@@ -1354,7 +1263,6 @@ export function renderSemaforoGastosVariables(mesRecords) {
         </div>
       </div>
 
-      <!-- Tarjetas de Estadísticas Numéricas -->
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-slate-800/40 p-3 rounded-xl border border-slate-700/50">
         <div>
           <span class="text-[10px] text-slate-400 block uppercase font-medium">Gastado este Mes</span>
@@ -1374,19 +1282,14 @@ export function renderSemaforoGastosVariables(mesRecords) {
         </div>
       </div>
 
-      <!-- BARRA GRÁFICA DE COLORES DEL SEMÁFORO -->
       <div class="space-y-1.5 pt-1">
         <div class="flex justify-between items-center text-xs font-mono">
           <span class="text-slate-300 font-medium">Avance del Gasto: <strong style="color: ${colorHex}; font-size: 13px;">${pct.toFixed(1)}%</strong></span>
           <span class="text-slate-400 text-[11px]">${mensaje}</span>
         </div>
-
-        <!-- Contenedor de la barra de progreso -->
         <div style="background-color: #0b132b; height: 16px; border-radius: 9999px; overflow: hidden; border: 1px solid #334155; padding: 2px; position: relative; box-shadow: inset 0 2px 4px rgba(0,0,0,0.6);">
           <div style="height: 100%; border-radius: 9999px; width: ${Math.min(100, Math.max(3, pct))}%; background: ${barraFondo}; transition: width 0.7s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: ${glowSombra};"></div>
         </div>
-
-        <!-- Escala de Colores del Semáforo (Verde, Amarillo, Rojo) -->
         <div class="flex items-center justify-between text-[10px] sm:text-[11px] font-mono text-slate-400 pt-1 border-t border-slate-800/80">
           <div class="flex items-center gap-1.5">
             <span style="width: 8px; height: 8px; border-radius: 50%; background-color: #10b981; display: inline-block;"></span>
@@ -1407,7 +1310,7 @@ export function renderSemaforoGastosVariables(mesRecords) {
 }
 
 // ==========================================================
-// 2. PLANIFICADOR DE QUINCENAS (FLUJO DE CAJA 1-15 vs 16-30)
+// 2. PLANIFICADOR DE QUINCENAS
 // ==========================================================
 export function renderPlanificadorQuincenal(mesRecords) {
   const container = document.getElementById('dashPlanificadorQuincenalContainer');
@@ -1431,8 +1334,8 @@ export function renderPlanificadorQuincenal(mesRecords) {
   const egresosQ1 = q1Records.filter(r => r.tipo === 'Egreso').reduce((acc, c) => acc + (Number(c.monto) || 0), 0);
   const egresosQ2 = q2Records.filter(r => r.tipo === 'Egreso').reduce((acc, c) => acc + (Number(c.monto) || 0), 0);
 
-  const ingresoQ1 = Number(state.ingresoQuincena1) || 750000;
-  const ingresoQ2 = Number(state.ingresoQuincena2) || 750000;
+  const ingresoQ1 = Number(state.ingresoQuincena1) || 900000;
+  const ingresoQ2 = Number(state.ingresoQuincena2) || 900000;
 
   const saldoQ1 = ingresoQ1 - egresosQ1;
   const saldoQ2 = ingresoQ2 - egresosQ2;
@@ -1453,7 +1356,6 @@ export function renderPlanificadorQuincenal(mesRecords) {
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <!-- QUINCENA 1 -->
         <div class="bg-slate-800/40 border ${esQ1Activa ? 'border-emerald-500/60 ring-2 ring-emerald-500/20' : 'border-slate-700/40'} rounded-xl p-3.5 space-y-3 relative overflow-hidden">
           ${esQ1Activa ? '<span class="absolute top-2 right-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/40 animate-pulse">● QUINCENA EN CURSO</span>' : ''}
           <div class="flex items-center gap-2">
@@ -1485,7 +1387,6 @@ export function renderPlanificadorQuincenal(mesRecords) {
           </div>
         </div>
 
-        <!-- QUINCENA 2 -->
         <div class="bg-slate-800/40 border ${!esQ1Activa ? 'border-emerald-500/60 ring-2 ring-emerald-500/20' : 'border-slate-700/40'} rounded-xl p-3.5 space-y-3 relative overflow-hidden">
           ${!esQ1Activa ? '<span class="absolute top-2 right-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/40 animate-pulse">● QUINCENA EN CURSO</span>' : ''}
           <div class="flex items-center gap-2">
@@ -1565,9 +1466,7 @@ export function renderMetasAhorroWidget() {
     return;
   }
 
-  html += `
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-  `;
+  html += `<div class="grid grid-cols-1 md:grid-cols-3 gap-3.5">`;
 
   metas.forEach((m, idx) => {
     const meta = Number(m.meta) || 1;
@@ -1607,10 +1506,7 @@ export function renderMetasAhorroWidget() {
     `;
   });
 
-  html += `
-      </div>
-    </div>
-  `;
+  html += `</div></div>`;
   container.innerHTML = html;
 }
 
@@ -1654,7 +1550,7 @@ export function renderSimuladorAvalancha() {
   ordenadas.forEach((d, idx) => {
     const tasa = Number(d.tasa_ea) || 0;
     const esTop = idx === 0 && tasa > 0;
-    const iMensual = Math.pow(1 + tasa, 1/12) - 1;
+    const iMensual = Math.pow(1 + tasa, 1 / 12) - 1;
     const mesesRestantes = Math.min(36, Math.max(1, Math.ceil(d.saldo_pendiente / (d.cuota_mensual || 1))));
     const ahorroInteres = Math.round(abono * iMensual * mesesRestantes * 0.7);
     const cuotasAhorradas = Math.max(1, Math.round(abono / (d.cuota_mensual || 1)));
@@ -1692,11 +1588,7 @@ export function renderSimuladorAvalancha() {
     `;
   });
 
-  html += `
-      </div>
-    </div>
-  `;
-
+  html += `</div></div>`;
   container.innerHTML = html;
 }
 
@@ -2023,9 +1915,12 @@ export function renderDeudas() {
 
   tbody.innerHTML = html;
 
-  document.getElementById('deudasTotalPendiente').textContent = formatCOP(totalPendiente);
-  document.getElementById('deudasTotalCuota').textContent = formatCOP(totalCuota);
-  document.getElementById('deudasTotalPct').textContent = totalPct.toFixed(1) + '%';
+  const elTotPend = document.getElementById('deudasTotalPendiente');
+  if (elTotPend) elTotPend.textContent = formatCOP(totalPendiente);
+  const elTotCuota = document.getElementById('deudasTotalCuota');
+  if (elTotCuota) elTotCuota.textContent = formatCOP(totalCuota);
+  const elTotPct = document.getElementById('deudasTotalPct');
+  if (elTotPct) elTotPct.textContent = totalPct.toFixed(1) + '%';
 }
 
 // ==========================================================
@@ -2036,7 +1931,6 @@ export function renderConsolidados() {
   const ano = Number(state.consolidadoAno || state.selectedAno);
   const anoRecords = state.records.filter(r => Number(r.año) === ano);
 
-  // 1. Mensual para el año seleccionado
   const mensualTbody = document.getElementById('tablaConsolidadoMensual');
   if (mensualTbody) {
     let sumIng = 0, sumEg = 0;
@@ -2083,7 +1977,6 @@ export function renderConsolidados() {
     mensualTbody.innerHTML = html;
   }
 
-  // 2. Comparativo Año a Año (2025 vs 2026 vs 2027)
   const anosTbody = document.getElementById('tablaConsolidadoAnualMulti');
   if (anosTbody) {
     const anosUnicos = [2025, 2026, 2027, 2028];
@@ -2107,16 +2000,14 @@ export function renderConsolidados() {
     anosTbody.innerHTML = html;
   }
 
-  // 3. Comparativo Cara a Cara (Mes a Mes o Año a Año)
   renderComparativoCaraACara();
 }
 
-// Comparador Cara a Cara
 export function renderComparativoCaraACara() {
   const container = document.getElementById('comparativoCaraACaraBody');
   if (!container) return;
 
-  const modo = state.compararModo; // 'meses' o 'anos'
+  const modo = state.compararModo;
   let label1 = '', label2 = '';
   let recs1 = [], recs2 = [];
 
@@ -2132,8 +2023,10 @@ export function renderComparativoCaraACara() {
     recs2 = state.records.filter(r => Number(r.año) === Number(state.compararAno2));
   }
 
-  document.getElementById('compColHeader1').textContent = label1;
-  document.getElementById('compColHeader2').textContent = label2;
+  const h1 = document.getElementById('compColHeader1');
+  if (h1) h1.textContent = label1;
+  const h2 = document.getElementById('compColHeader2');
+  if (h2) h2.textContent = label2;
 
   const ing1 = recs1.filter(r => r.tipo === 'Ingreso').reduce((acc, c) => acc + (Number(c.monto) || 0), 0);
   const ing2 = recs2.filter(r => r.tipo === 'Ingreso').reduce((acc, c) => acc + (Number(c.monto) || 0), 0);
@@ -2201,7 +2094,7 @@ export function renderHistorial() {
 
   if (state.searchQuery) {
     const q = state.searchQuery.toLowerCase();
-    filtrados = filtrados.filter(r => 
+    filtrados = filtrados.filter(r =>
       (r.concepto || '').toLowerCase().includes(q) ||
       (r.categoria || '').toLowerCase().includes(q) ||
       (r.mes || '').toLowerCase().includes(q) ||
@@ -2217,7 +2110,8 @@ export function renderHistorial() {
     filtrados = filtrados.filter(r => r.categoria === state.filterCategoria);
   }
 
-  document.getElementById('historialTotalCount').textContent = `${filtrados.length} movimientos`;
+  const countEl = document.getElementById('historialTotalCount');
+  if (countEl) countEl.textContent = `${filtrados.length} movimientos`;
 
   const totalPages = Math.ceil(filtrados.length / state.pageSize) || 1;
   if (state.currentPage > totalPages) state.currentPage = totalPages;
@@ -2255,16 +2149,18 @@ export function renderHistorial() {
 
   tbody.innerHTML = html;
 
-  document.getElementById('historialPageIndicator').textContent = `Página ${state.currentPage} de ${totalPages}`;
-  document.getElementById('btnPrevPage').disabled = state.currentPage <= 1;
-  document.getElementById('btnNextPage').disabled = state.currentPage >= totalPages;
+  const pageInd = document.getElementById('historialPageIndicator');
+  if (pageInd) pageInd.textContent = `Página ${state.currentPage} de ${totalPages}`;
+  const prevBtn = document.getElementById('btnPrevPage');
+  if (prevBtn) prevBtn.disabled = state.currentPage <= 1;
+  const nextBtn = document.getElementById('btnNextPage');
+  if (nextBtn) nextBtn.disabled = state.currentPage >= totalPages;
 }
 
 export function renderAceite() {
   const listContainer = document.getElementById('aceiteHistorialList');
   if (!listContainer) return;
 
-  // Deduplicación defensiva en memoria por fecha y kilometraje
   const unicos = [];
   const seen = new Set();
   for (const c of (state.cambiosAceite || [])) {
@@ -2279,9 +2175,12 @@ export function renderAceite() {
   const ultimo = ordenados[0] || { kilometraje: 31343, fecha: '2026-09-10' };
   const proximoKm = Number(ultimo.kilometraje) + 2500;
 
-  document.getElementById('aceiteUltimoKm').textContent = formatNumber(ultimo.kilometraje) + ' km';
-  document.getElementById('aceiteUltimaFecha').textContent = ultimo.fecha;
-  document.getElementById('aceiteProximoKm').textContent = formatNumber(proximoKm) + ' km';
+  const elUltKm = document.getElementById('aceiteUltimoKm');
+  if (elUltKm) elUltKm.textContent = formatNumber(ultimo.kilometraje) + ' km';
+  const elUltFecha = document.getElementById('aceiteUltimaFecha');
+  if (elUltFecha) elUltFecha.textContent = ultimo.fecha;
+  const elProxKm = document.getElementById('aceiteProximoKm');
+  if (elProxKm) elProxKm.textContent = formatNumber(proximoKm) + ' km';
 
   let html = '';
   ordenados.forEach((c, idx) => {
@@ -2308,7 +2207,6 @@ export async function agregarCambioAceite(fecha, km, notas = '') {
     return;
   }
 
-  // Evitar duplicados idénticos en fecha y km
   const existe = (state.cambiosAceite || []).some(a => a.fecha === fecha && Number(a.kilometraje) === kmNum);
   if (existe) {
     showToast('Ya existe un registro para esa fecha y kilometraje.', 'warning');
@@ -2378,21 +2276,21 @@ export function switchTab(tabName) {
 
   document.querySelectorAll('.nav-btn').forEach(btn => {
     const isCurrent = btn.dataset.tab === tabName;
-    btn.className = isCurrent 
+    btn.className = isCurrent
       ? 'nav-btn w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl font-semibold text-sm bg-indigo-600 text-white shadow-md shadow-indigo-900/40'
       : 'nav-btn w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl font-medium text-sm text-slate-400 hover:text-slate-100 hover:bg-slate-800/60 transition-colors';
   });
 
   document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
     const isCurrent = btn.dataset.tab === tabName;
-    btn.className = isCurrent 
+    btn.className = isCurrent
       ? 'mobile-nav-btn flex flex-col items-center py-2 px-1 text-indigo-400 text-[10px] font-semibold'
       : 'mobile-nav-btn flex flex-col items-center py-2 px-1 text-slate-400 text-[10px]';
   });
 
   document.querySelectorAll('.drawer-nav-btn').forEach(btn => {
     const isCurrent = btn.dataset.tab === tabName;
-    btn.className = isCurrent 
+    btn.className = isCurrent
       ? 'drawer-nav-btn flex items-center gap-3 px-4 py-2.5 rounded-xl font-bold text-sm bg-indigo-600 text-white shadow-lg'
       : 'drawer-nav-btn flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium text-sm text-slate-300 hover:bg-slate-800/60';
   });
@@ -2406,7 +2304,6 @@ export function switchTab(tabName) {
     activeSec.classList.remove('hidden');
   }
 
-  // Cerrar drawer móvil si está abierto
   const drawer = document.getElementById('mobileDrawer');
   if (drawer && !drawer.classList.contains('hidden')) {
     drawer.classList.add('hidden');
@@ -2449,30 +2346,22 @@ export function renderAccordionUI() {
   const modulos = ['nomina', 'universidad'];
   modulos.forEach(mod => {
     const isExpanded = state.menuAccordion ? state.menuAccordion[mod] !== false : true;
-    
-    // Contenedores Desktop
+
     const contDesk = document.getElementById(`accordion-content-${mod}`);
     const chevronDesk = document.getElementById(`accordion-chevron-${mod}`);
     if (contDesk) {
-      if (isExpanded) {
-        contDesk.classList.remove('hidden');
-      } else {
-        contDesk.classList.add('hidden');
-      }
+      if (isExpanded) contDesk.classList.remove('hidden');
+      else contDesk.classList.add('hidden');
     }
     if (chevronDesk) {
       chevronDesk.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)';
     }
 
-    // Contenedores Móvil (Drawer)
     const contMob = document.getElementById(`mobile-accordion-content-${mod}`);
     const chevronMob = document.getElementById(`mobile-accordion-chevron-${mod}`);
     if (contMob) {
-      if (isExpanded) {
-        contMob.classList.remove('hidden');
-      } else {
-        contMob.classList.add('hidden');
-      }
+      if (isExpanded) contMob.classList.remove('hidden');
+      else contMob.classList.add('hidden');
     }
     if (chevronMob) {
       chevronMob.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)';
@@ -2593,7 +2482,6 @@ export async function confirmarNuevaMateria() {
   guardarEnLocalStorage();
   cerrarModalNuevaMateria();
 
-  // Limpiar inputs
   if (document.getElementById('inputMateriaNombre')) document.getElementById('inputMateriaNombre').value = '';
   if (document.getElementById('inputMateriaCodigo')) document.getElementById('inputMateriaCodigo').value = '';
   if (document.getElementById('inputMateriaProfesor')) document.getElementById('inputMateriaProfesor').value = '';
@@ -2810,3 +2698,22 @@ export function limpiarCalculadora() {
   guardarEnLocalStorage();
   renderUniCalculadora(state);
 }
+
+// ==========================================================
+// SINCRONIZACIÓN AUTOMÁTICA AL VOLVER A LA PESTAÑA / APP
+// ==========================================================
+let ultimaSincronizacion = 0;
+async function sincronizarSilenciosamente() {
+  const ahora = Date.now();
+  if (!supabaseClient || (ahora - ultimaSincronizacion) < 4000) return;
+  ultimaSincronizacion = ahora;
+  await cargarDatosDesdeSupabase(true);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    sincronizarSilenciosamente();
+  }
+});
+
+window.addEventListener('focus', sincronizarSilenciosamente);
