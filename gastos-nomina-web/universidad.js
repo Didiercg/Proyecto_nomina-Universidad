@@ -512,14 +512,13 @@ export function renderUniCalificaciones(state, callbacks) {
   if (window.lucide) window.lucide.createIcons();
 }
 
-export function renderUniCalculadora(state, callbacks) {
+export function renderUniCalculadora(state) {
   const container = document.getElementById('uniCalculadoraContainer');
   if (!container) return;
 
   const rows = state.calculadoraRows || [];
   const meta = Number(state.calculadoraMeta) || 3.0;
 
-  // Cálculos matemáticos de la calculadora
   let totalPorcentaje = 0;
   let evaluadoPct = 0;
   let acumulado = 0;
@@ -544,18 +543,15 @@ export function renderUniCalculadora(state, callbacks) {
 
   if (totalPorcentaje > 100) {
     colorBadge = 'rose';
-    mensajeResultado = `⚠️ La suma de porcentajes es ${totalPorcentaje}% (> 100%). Por favor ajusta los porcentajes para que la suma no supere el 100%.`;
+    mensajeResultado = `⚠️ La suma de porcentajes es <strong>${totalPorcentaje}%</strong> (supera el 100%). Ajusta los valores.`;
   } else if (acumulado >= meta) {
     colorBadge = 'emerald';
-    mensajeResultado = `🎉 ¡Meta superada! Ya acumulaste ${acumulado.toFixed(2)} puntos (meta: ${meta.toFixed(1)}). Incluso con 0.0 en lo restante tienes la materia aprobada.`;
+    mensajeResultado = `🎉 ¡Meta superada! Ya acumulaste <strong>${acumulado.toFixed(2)}</strong> puntos (meta: ${meta.toFixed(1)}).`;
   } else if (pendientePct <= 0) {
-    if (acumulado >= meta) {
-      colorBadge = 'emerald';
-      mensajeResultado = `✓ Aprobada: Tu nota final acumulada es ${acumulado.toFixed(2)}.`;
-    } else {
-      colorBadge = 'rose';
-      mensajeResultado = `❌ Reprobada: Nota final de ${acumulado.toFixed(2)} (no alcanzó la meta mínima de ${meta.toFixed(1)}).`;
-    }
+    colorBadge = acumulado >= meta ? 'emerald' : 'rose';
+    mensajeResultado = acumulado >= meta
+      ? `✓ Aprobada: Tu nota final acumulada es <strong>${acumulado.toFixed(2)}</strong>.`
+      : `❌ Reprobada: Nota final de <strong>${acumulado.toFixed(2)}</strong> (no alcanzó ${meta.toFixed(1)}).`;
   } else {
     const puntosFaltantes = meta - acumulado;
     const req = puntosFaltantes / (pendientePct / 100);
@@ -563,33 +559,28 @@ export function renderUniCalculadora(state, callbacks) {
 
     if (req <= 3.5) {
       colorBadge = 'cyan';
-      mensajeResultado = `Para alcanzar ${meta.toFixed(1)}, necesitas sacar una nota promedio de <strong>${req.toFixed(2)}</strong> en el <strong>${pendientePct}%</strong> restante.`;
+      mensajeResultado = `Para alcanzar <strong>${meta.toFixed(1)}</strong>, necesitas sacar mínimo <strong>${req.toFixed(2)}</strong> en el <strong>${pendientePct}%</strong> restante.`;
     } else if (req <= 5.0) {
       colorBadge = 'amber';
-      mensajeResultado = `Exigencia Alta: Necesitas sacar al menos <strong>${req.toFixed(2)}</strong> en el <strong>${pendientePct}%</strong> restante para alcanzar ${meta.toFixed(1)}.`;
+      mensajeResultado = `Exigencia Alta: Necesitas sacar al menos <strong>${req.toFixed(2)}</strong> en el <strong>${pendientePct}%</strong> restante para llegar a ${meta.toFixed(1)}.`;
     } else {
       colorBadge = 'rose';
       const maximo = acumulado + (5.0 * pendientePct / 100);
-      mensajeResultado = `⚠️ Inalcanzable: Requerirías <strong>${req.toFixed(2)}</strong> (> 5.0). La nota máxima posible obteniendo 5.0 en lo restante sería <strong>${maximo.toFixed(2)}</strong>.`;
+      mensajeResultado = `⚠️ Inalcanzable: Necesitarías <strong>${req.toFixed(2)}</strong> (> 5.0). Lo máximo posible sacando 5.0 es <strong>${maximo.toFixed(2)}</strong>.`;
     }
   }
 
   container.innerHTML = `
     <div class="space-y-4">
-      
-      <!-- BARRA DE PRESETS Y META -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <!-- SELECTOR DE META -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 class="text-base font-bold text-white flex items-center gap-2">
-            <i data-lucide="calculator" class="w-5 h-5 text-cyan-400"></i>
-            <span>Calculadora y Simulador de Notas Universitarias</span>
-          </h2>
-          <p class="text-xs text-slate-400">Simula tus cortes, notas requeridas y promedio ponderado en tiempo real</p>
+          <h3 class="text-sm font-bold text-white">Simulador Rápido por Porcentajes</h3>
+          <p class="text-xs text-slate-400">Ingresa el porcentaje y la nota de cada corte para ver tu acumulado</p>
         </div>
-
-        <div class="flex items-center gap-2 self-start md:self-auto">
-          <span class="text-xs text-slate-400">Meta de Aprobación:</span>
-          <select id="calcInputMeta" onchange="window.cambiarMetaCalculadora(this.value)" class="bg-slate-800 border border-slate-700 text-xs font-mono font-bold text-emerald-400 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-indigo-500">
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-slate-400">Meta:</span>
+          <select onchange="window.cambiarMetaCalculadora(this.value)" class="bg-slate-800 border border-slate-700 text-xs font-mono font-bold text-emerald-400 rounded-lg px-2.5 py-1.5 focus:outline-none">
             <option value="3.0" ${meta === 3.0 ? 'selected' : ''}>3.0 (Mínima)</option>
             <option value="3.5" ${meta === 3.5 ? 'selected' : ''}>3.5 (Buena)</option>
             <option value="4.0" ${meta === 4.0 ? 'selected' : ''}>4.0 (Sobresaliente)</option>
@@ -598,34 +589,14 @@ export function renderUniCalculadora(state, callbacks) {
         </div>
       </div>
 
-      <!-- BOTONES DE PLANTILLAS RÁPIDAS -->
-      <div class="flex flex-wrap items-center gap-2">
-        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider pr-1">Plantillas Frecuentes:</span>
-        <button onclick="window.cargarPresetCalculadora('3cortes')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium border border-slate-700 transition-colors">
-          3 Cortes (30%, 30%, 40%)
-        </button>
-        <button onclick="window.cargarPresetCalculadora('4cortes')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium border border-slate-700 transition-colors">
-          4 Evaluaciones (25% c/u)
-        </button>
-        <button onclick="window.cargarPresetCalculadora('5cortes')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium border border-slate-700 transition-colors">
-          5 Evaluaciones (20% c/u)
-        </button>
-        <button onclick="window.cargarPresetCalculadora('35_35_30')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium border border-slate-700 transition-colors">
-          35% • 35% • 30%
-        </button>
-        <button onclick="window.limpiarCalculadora()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-rose-950/60 text-slate-400 hover:text-rose-300 text-xs font-medium border border-slate-700 transition-colors ml-auto">
-          Limpiar Todo
-        </button>
-      </div>
-
-      <!-- RESULTADO PRINCIPAL PROYECTADO -->
+      <!-- DIAGNÓSTICO DE APROBACIÓN -->
       <div class="bg-gradient-to-r from-slate-900 via-slate-800/80 to-slate-900 border ${colorBadge === 'rose' ? 'border-rose-500/50' : (colorBadge === 'amber' ? 'border-amber-500/50' : 'border-emerald-500/50')} rounded-2xl p-4 shadow-xl space-y-3">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div class="space-y-1">
             <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Diagnóstico de Aprobación</span>
             <div class="text-sm text-slate-200">${mensajeResultado}</div>
           </div>
-          <div class="flex items-center gap-4 shrink-0 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+          <div class="flex items-center gap-4 shrink-0 bg-slate-950/70 p-3 rounded-xl border border-slate-800">
             <div>
               <span class="text-[9px] text-slate-400 uppercase block">Acumulado</span>
               <span class="text-xl font-bold font-mono text-emerald-400">${acumulado.toFixed(2)}</span>
@@ -639,25 +610,24 @@ export function renderUniCalculadora(state, callbacks) {
           </div>
         </div>
 
-        <!-- Indicador de Porcentajes -->
         <div class="space-y-1">
           <div class="flex justify-between text-xs font-mono">
-            <span class="text-slate-300">Configurado: <strong class="${totalPorcentaje > 100 ? 'text-rose-400' : (totalPorcentaje === 100 ? 'text-emerald-400' : 'text-amber-400')}">${totalPorcentaje}%</strong> de 100%</span>
+            <span class="text-slate-300">Configurado: <strong class="${totalPorcentaje > 100 ? 'text-rose-400' : (totalPorcentaje === 100 ? 'text-emerald-400' : 'text-amber-400')}">${totalPorcentaje}%</strong> / 100%</span>
             <span class="text-slate-400">Evaluado: <strong>${evaluadoPct}%</strong> | Pendiente: <strong>${pendientePct}%</strong></span>
           </div>
-          <div style="background-color: #0b132b; height: 12px; border-radius: 9999px; overflow: hidden; border: 1px solid #334155; padding: 1px;">
-            <div style="height: 100%; border-radius: 9999px; width: ${Math.min(100, Math.max(0, evaluadoPct))}%; background: linear-gradient(90deg, #10b981, #06b6d4); transition: width 0.4s ease;"></div>
+          <div class="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden border border-slate-800">
+            <div class="h-full rounded-full transition-all duration-300" style="width: ${Math.min(100, Math.max(0, evaluadoPct))}%; background: linear-gradient(90deg, #10b981, #06b6d4);"></div>
           </div>
         </div>
       </div>
 
-      <!-- TABLA DINÁMICA DE ENTRADA DE NOTAS -->
-      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+      <!-- TABLA SIMPLIFICADA (SOLO PORCENTAJE, NOTA Y APORTE) -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
         <div class="p-3.5 border-b border-slate-800 flex items-center justify-between">
-          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200">Evaluaciones Simuladas</h3>
-          <button onclick="window.agregarFilaCalculadora()" class="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-bold transition-all shadow flex items-center gap-1.5">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200">Notas y Porcentajes</h3>
+          <button onclick="window.agregarFilaCalculadora()" class="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5">
             <i data-lucide="plus" class="w-3.5 h-3.5"></i>
-            <span>+ Agregar Fila</span>
+            <span>+ Agregar Nota</span>
           </button>
         </div>
 
@@ -665,11 +635,11 @@ export function renderUniCalculadora(state, callbacks) {
           <table class="w-full text-left text-xs">
             <thead class="bg-slate-800/60 text-[10px] text-slate-400 uppercase font-semibold border-b border-slate-700/60">
               <tr>
-                <th class="py-2.5 px-3">Nombre de la Evaluación</th>
+                <th class="py-2.5 px-3 text-center">#</th>
                 <th class="py-2.5 px-3 text-center">Porcentaje (%)</th>
                 <th class="py-2.5 px-3 text-center">Nota Obtenida (0.0 - 5.0)</th>
-                <th class="py-2.5 px-3 text-right">Aporte Ponderado</th>
-                <th class="py-2.5 px-3 text-center">Eliminar</th>
+                <th class="py-2.5 px-3 text-right">Aporte</th>
+                <th class="py-2.5 px-3 text-center">Quitar</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-800/80">
@@ -679,29 +649,25 @@ export function renderUniCalculadora(state, callbacks) {
 
                 return `
                   <tr class="hover:bg-slate-800/30 transition-colors">
-                    <td class="py-2 px-3">
-                      <input type="text" value="${r.nombre}" 
-                        onchange="window.actualizarFilaCalculadora(${idx}, 'nombre', this.value)"
-                        class="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none">
-                    </td>
-                    <td class="py-2 px-3 text-center">
+                    <td class="py-2.5 px-3 text-center font-mono text-slate-400 font-bold">${idx + 1}</td>
+                    <td class="py-2.5 px-3 text-center">
                       <div class="inline-flex items-center gap-1">
                         <input type="number" min="1" max="100" value="${r.porcentaje}" 
-                          oninput="window.actualizarFilaCalculadora(${idx}, 'porcentaje', this.value)"
+                          onchange="window.actualizarFilaCalculadora('${r.id}', 'porcentaje', this.value)"
                           class="w-16 bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-lg px-2 py-1 text-center font-mono text-xs text-cyan-300 font-bold focus:outline-none">
                         <span class="text-slate-500 font-mono">%</span>
                       </div>
                     </td>
-                    <td class="py-2 px-3 text-center">
-                      <input type="number" step="0.1" min="0" max="5.0" value="${r.nota !== null ? r.nota : ''}" placeholder="Pendiente"
-                        oninput="window.actualizarFilaCalculadora(${idx}, 'nota', this.value)"
+                    <td class="py-2.5 px-3 text-center">
+                      <input type="number" step="0.1" min="0" max="5.0" value="${r.nota !== null ? r.nota : ''}" placeholder="0.0"
+                        onchange="window.actualizarFilaCalculadora('${r.id}', 'nota', this.value)"
                         class="w-24 bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-lg px-2 py-1 text-center font-mono text-xs text-white placeholder:text-slate-600 focus:outline-none font-bold">
                     </td>
-                    <td class="py-2 px-3 text-right font-mono font-bold ${tieneNota ? 'text-emerald-400' : 'text-slate-600'}">
+                    <td class="py-2.5 px-3 text-right font-mono font-bold ${tieneNota ? 'text-emerald-400' : 'text-slate-600'}">
                       +${aporte}
                     </td>
-                    <td class="py-2 px-3 text-center">
-                      <button onclick="window.eliminarFilaCalculadora(${idx})" class="text-slate-500 hover:text-rose-400 p-1 transition-colors" title="Eliminar fila">
+                    <td class="py-2.5 px-3 text-center">
+                      <button onclick="window.eliminarFilaCalculadora('${r.id}')" class="text-slate-500 hover:text-rose-400 p-1 transition-colors">
                         <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                       </button>
                     </td>
@@ -711,12 +677,12 @@ export function renderUniCalculadora(state, callbacks) {
             </tbody>
             <tfoot class="bg-slate-800/40 border-t border-slate-700 text-xs font-semibold text-slate-300">
               <tr>
-                <td class="py-2.5 px-3">SUMATORIA</td>
+                <td class="py-2.5 px-3 text-center">TOTAL</td>
                 <td class="py-2.5 px-3 text-center font-mono font-bold ${totalPorcentaje > 100 ? 'text-rose-400' : (totalPorcentaje === 100 ? 'text-emerald-400' : 'text-amber-400')}">
                   ${totalPorcentaje}%
                 </td>
-                <td class="py-2.5 px-3 text-center font-mono text-slate-400">
-                  Promedio de notas: ${promedioEvaluado.toFixed(2)}
+                <td class="py-2.5 px-3 text-center font-mono text-slate-300">
+                  Promedio: <strong class="text-white">${promedioEvaluado.toFixed(2)}</strong>
                 </td>
                 <td class="py-2.5 px-3 text-right font-mono text-emerald-400 font-bold">
                   ${acumulado.toFixed(2)} pts
@@ -732,3 +698,4 @@ export function renderUniCalculadora(state, callbacks) {
 
   if (window.lucide) window.lucide.createIcons();
 }
+
