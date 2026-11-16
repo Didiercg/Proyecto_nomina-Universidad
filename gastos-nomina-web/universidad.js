@@ -264,60 +264,63 @@ export function renderUniSemestres(state, callbacks) {
     }
 
     return `
-      <div class="bg-slate-900/90 border border-slate-800 hover:border-slate-700/80 rounded-2xl p-4 shadow-xl flex flex-col justify-between space-y-4 transition-all">
-        <div>
-          <div class="flex items-start justify-between gap-2 border-b border-slate-800/80 pb-3">
-            <div>
-              <div class="flex items-center gap-2">
-                <h3 class="text-sm font-bold text-white tracking-tight">${mat.nombre}</h3>
-                <span class="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 font-mono">${mat.codigo || 'MAT'}</span>
+      <div class="bg-slate-900 border border-slate-800 hover:border-indigo-500/40 rounded-2xl p-4 shadow-lg flex flex-col justify-between space-y-3.5 transition-all">
+        <div class="space-y-3">
+          <!-- Cabecera limpia sin desbordamientos -->
+          <div class="flex items-start justify-between gap-2 border-b border-slate-800/80 pb-2.5">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <h3 class="text-sm font-bold text-white leading-snug truncate">${mat.nombre}</h3>
+                <span class="text-[10px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 font-mono whitespace-nowrap border border-slate-700/60">${mat.codigo || 'MAT'}</span>
               </div>
-              <p class="text-[11px] text-slate-400 mt-0.5">
-                ${mat.creditos || 3} Créditos • ${mat.profesor ? mat.profesor : 'Docente sin asignar'}
+              <p class="text-[11px] text-slate-400 mt-1 truncate">
+                ${mat.creditos || 3} Créditos • ${mat.profesor || 'Docente sin asignar'}
               </p>
             </div>
-            <span class="text-[11px] font-bold px-2 py-0.5 rounded-full border ${badgeClass} shrink-0">
+            <span class="text-[10px] font-bold px-2.5 py-1 rounded-lg border ${badgeClass} whitespace-nowrap shrink-0">
               ${badgeText}
             </span>
           </div>
 
-          <!-- Métricas de Avance Evaluativo -->
-          <div class="pt-3 space-y-2">
-            <div class="flex items-center justify-between text-xs font-mono">
-              <span class="text-slate-400">Acumulado Actual:</span>
-              <span class="font-bold text-base" style="color: ${highlightColor}">${m.acumulado.toFixed(2)} <span class="text-[10px] text-slate-500">/ 5.0</span></span>
+          <!-- Acumulado y Barra de Progreso -->
+          <div class="space-y-2">
+            <div class="flex items-baseline justify-between">
+              <span class="text-xs text-slate-400">Acumulado Actual:</span>
+              <div class="font-mono">
+                <span class="font-extrabold text-xl" style="color: ${highlightColor}">${m.acumulado.toFixed(2)}</span>
+                <span class="text-xs text-slate-500">/ 5.0</span>
+              </div>
             </div>
 
-            <!-- Barra de Avance Evaluativo -->
             <div class="space-y-1">
               <div class="flex justify-between text-[10px] text-slate-400 font-mono">
-                <span>Evaluado: <strong>${m.evaluadoPct}%</strong></span>
-                <span>Pendiente: <strong>${m.pendientePct}%</strong></span>
+                <span>Evaluado: <strong class="text-slate-200">${m.evaluadoPct}%</strong></span>
+                <span>Pendiente: <strong class="text-slate-200">${m.pendientePct}%</strong></span>
               </div>
-              <div style="background-color: #0b132b; height: 10px; border-radius: 9999px; overflow: hidden; border: 1px solid #334155; padding: 1px;">
-                <div style="height: 100%; border-radius: 9999px; width: ${Math.min(100, Math.max(0, m.evaluadoPct))}%; background: ${barColor}; transition: width 0.5s ease;"></div>
+              <div class="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
+                <div class="h-full rounded-full transition-all duration-500" style="width: ${Math.min(100, Math.max(0, m.evaluadoPct))}%; background: ${barColor};"></div>
               </div>
             </div>
+          </div>
 
-            <!-- Proyección para Aprobar con 3.0 -->
-            <div class="p-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 text-[11px] text-slate-300 space-y-0.5">
-              <div class="text-[10px] uppercase font-bold text-slate-400 flex items-center justify-between">
-                <span>Meta Mínima: 3.0</span>
-                <span>${m.estado === 'aprobada' ? '<span class="text-emerald-400 font-bold">¡Aprobada!</span>' : (m.notaNecesaria !== null ? `Req: <strong>${m.notaNecesaria.toFixed(2)}</strong>` : '')}</span>
-              </div>
-              <p class="text-[11px] text-slate-300 italic">${m.mensaje}</p>
+          <!-- Diagnóstico de Meta -->
+          <div class="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-1">
+            <div class="text-[10px] uppercase font-bold tracking-wider flex items-center justify-between">
+              <span class="text-slate-400">Meta Mínima: 3.0</span>
+              <span>${m.estado === 'aprobada' ? '<span class="text-emerald-400">✓ Aprobada</span>' : (m.notaNecesaria !== null ? `<span class="text-cyan-400">Req: ${m.notaNecesaria.toFixed(2)}</span>` : '')}</span>
             </div>
+            <p class="text-[11px] text-slate-300 leading-relaxed">${m.mensaje}</p>
           </div>
         </div>
 
-        <!-- Botones de Acción -->
-        <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2">
-          <button onclick="window.irACalificacionesMateria('${mat.id}')" class="flex-1 py-1.5 px-2.5 rounded-lg bg-indigo-600/30 hover:bg-indigo-600 text-indigo-200 hover:text-white text-xs font-semibold border border-indigo-500/40 transition-all flex items-center justify-center gap-1.5">
+        <!-- Botones -->
+        <div class="pt-1 flex items-center gap-2">
+          <button onclick="window.irACalificacionesMateria('${mat.id}')" class="flex-1 py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition-all flex items-center justify-center gap-1.5">
             <i data-lucide="award" class="w-3.5 h-3.5"></i>
             <span>Ver Calificaciones</span>
           </button>
-          <button onclick="window.eliminarMateria('${mat.id}')" class="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-950/60 text-slate-400 hover:text-rose-300 border border-slate-700/60 transition-colors" title="Eliminar Materia">
-            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          <button onclick="window.eliminarMateria('${mat.id}')" class="p-2 rounded-xl bg-slate-800 hover:bg-rose-950/70 text-slate-400 hover:text-rose-400 border border-slate-700/60 transition-colors" title="Eliminar Materia">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
           </button>
         </div>
       </div>
