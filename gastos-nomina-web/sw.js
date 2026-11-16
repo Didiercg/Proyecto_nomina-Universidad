@@ -1,5 +1,5 @@
 // Service Worker para Nómina & Finanzas PWA
-const CACHE_NAME = 'nomina-finanzas-v4.0';
+const CACHE_NAME = 'nomina-finanzas-v5.0';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -9,6 +9,7 @@ const STATIC_ASSETS = [
   './jszip.min.js',
   './app.js',
   './universidad.js',
+  './emprendimiento.js',
   './deudasAmortizacion.js',
   './exportExcel.js',
   './initialData.js',
@@ -44,7 +45,6 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-First para archivos de la aplicación (siempre descarga cambios nuevos de Vercel)
   if (url.origin === self.location.origin) {
     event.respondWith(
       fetch(event.request)
