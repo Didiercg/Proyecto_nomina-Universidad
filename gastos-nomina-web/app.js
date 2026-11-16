@@ -521,21 +521,46 @@ function cargarDatosLocales() {
 }
 
 export function guardarEnLocalStorage() {
-  localStorage.setItem('local_records', JSON.stringify(state.records));
-  localStorage.setItem('local_aceite', JSON.stringify(state.cambiosAceite));
-  localStorage.setItem('local_deudas', JSON.stringify(state.deudas));
-  localStorage.setItem('local_amortizaciones', JSON.stringify(state.amortizaciones));
-  localStorage.setItem('local_gastos_fijos', JSON.stringify(state.gastosFijos));
-  localStorage.setItem('local_devengado', JSON.stringify(state.devengadoData));
-  localStorage.setItem('local_lote_items', JSON.stringify(state.loteItems));
-  localStorage.setItem('local_metas_ahorro', JSON.stringify(state.metasAhorro));
-  localStorage.setItem('local_ppto_variables', state.pptoVariablesMes);
+  const configPayload = {
+    ingresoQuincena1: state.ingresoQuincena1,
+    ingresoQuincena2: state.ingresoQuincena2,
+    pptoVariablesMes: state.pptoVariablesMes,
+    deudas: state.deudas,
+    gastosFijos: state.gastosFijos,
+    devengado: state.devengado,
+    loteItems: state.loteItems,
+    aceiteRegistros: state.aceiteRegistros,
+    universidadData: state.universidadData,
+    calculadoraRows: state.calculadoraRows,
+    calculadoraMeta: state.calculadoraMeta
+  };
+
+  // 1. Guardar en el dispositivo actual
   localStorage.setItem('local_ingreso_q1', state.ingresoQuincena1);
   localStorage.setItem('local_ingreso_q2', state.ingresoQuincena2);
-  localStorage.setItem('local_monto_simulador', state.montoSimuladorDeudas);
+  localStorage.setItem('local_ppto_variables', state.pptoVariablesMes);
+  localStorage.setItem('local_deudas', JSON.stringify(state.deudas));
+  localStorage.setItem('local_gastos_fijos', JSON.stringify(state.gastosFijos));
+  localStorage.setItem('local_devengado', JSON.stringify(state.devengado));
+  localStorage.setItem('local_lote_items', JSON.stringify(state.loteItems));
+  localStorage.setItem('local_aceite', JSON.stringify(state.aceiteRegistros));
   localStorage.setItem('local_universidad_data', JSON.stringify(state.universidadData));
-  localStorage.setItem('local_calculadora_rows', JSON.stringify(state.calculadoraRows));
-  localStorage.setItem('local_active_semestre', state.activeSemestreId);
+  localStorage.setItem('local_calc_rows', JSON.stringify(state.calculadoraRows));
+  localStorage.setItem('local_calc_meta', state.calculadoraMeta);
+
+  // 2. Sincronizar automáticamente hacia Supabase (para celular <-> PC)
+  if (supabaseClient) {
+    supabaseClient
+      .from('app_config')
+      .upsert({
+        key: 'global_state',
+        value: configPayload,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'key' })
+      .then(({ error }) => {
+        if (error) console.warn('Error sincronizando estado a Supabase:', error.message);
+      });
+  }
 }
 
 export async function cargarDatosDesdeSupabase() {
@@ -636,6 +661,39 @@ if (!uniError && uniData && uniData.length > 0) {
   } catch (err) {
     console.error('Error al cargar datos desde Supabase:', err);
     showToast('Error sincronizando con Supabase: ' + err.message, 'error');
+  }
+
+  // Descargar estado global (deudas marcadas, presupuestos, universidad) desde Supabase
+  try {
+    const { data: cfgRow, error: cfgErr } = await supabaseClient
+      .from('app_config')
+      .select('value')
+      .eq('key', 'global_state')
+      .maybeSingle();
+
+    if (!cfgErr && cfgRow && cfgRow.value) {
+      const v = cfgRow.value;
+      if (v.ingresoQuincena1 !== undefined) state.ingresoQuincena1 = v.ingresoQuincena1;
+      if (v.ingresoQuincena2 !== undefined) state.ingresoQuincena2 = v.ingresoQuincena2;
+      if (v.pptoVariablesMes !== undefined) state.pptoVariablesMes = v.pptoVariablesMes;
+      if (Array.isArray(v.deudas)) state.deudas = v.deudas;
+      if (Array.isArray(v.gastosFijos)) state.gastosFijos = v.gastosFijos;
+      if (v.devengado) state.devengado = v.devengado;
+      if (v.loteItems) state.loteItems = v.loteItems;
+      if (Array.isArray(v.aceiteRegistros)) state.aceiteRegistros = v.aceiteRegistros;
+      if (Array.isArray(v.universidadData)) state.universidadData = v.universidadData;
+      if (Array.isArray(v.calculadoraRows)) state.calculadoraRows = v.calculadoraRows;
+      if (v.calculadoraMeta !== undefined) state.calculadoraMeta = v.calculadoraMeta;
+
+      // Actualizar caché local del dispositivo con lo descargado de la nube
+      localStorage.setItem('local_deudas', JSON.stringify(state.deudas));
+      localStorage.setItem('local_gastos_fijos', JSON.stringify(state.gastosFijos));
+      localStorage.setItem('local_devengado', JSON.stringify(state.devengado));
+      localStorage.setItem('local_lote_items', JSON.stringify(state.loteItems));
+      localStorage.setItem('local_universidad_data', JSON.stringify(state.universidadData));
+    }
+  } catch (e) {
+    console.warn('No se pudo leer app_config de Supabase:', e);
   }
 }
 
