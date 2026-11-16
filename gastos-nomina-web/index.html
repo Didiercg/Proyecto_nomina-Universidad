@@ -2316,67 +2316,236 @@
     // ==========================================================
     // 1. SISTEMA DE AUTENTICACIÓN (LOGIN) CON CONEXIÓN DIRECTA
     // ==========================================================
-    const AUTH_USER = 'dgcano';
-    const AUTH_PASS = 'NominaDcg*';
-
-    const loginScreen = document.getElementById('loginScreen');
-    const formLogin = document.getElementById('formLogin');
-    const loginUser = document.getElementById('loginUser');
-    const loginPass = document.getElementById('loginPass');
-    const loginErrorMsg = document.getElementById('loginErrorMsg');
-    const btnLogout = document.getElementById('btnLogout');
-    const btnTogglePassVisibility = document.getElementById('btnTogglePassVisibility');
-
-    async function checkAuth() {
-      const isAuth = localStorage.getItem('auth_user') === AUTH_USER;
-      if (isAuth) {
-        loginScreen.classList.add('hidden');
-        // Conexión automática con credenciales por defecto si no existen
-        state.supabaseUrl = localStorage.getItem('supabase_url') || DEFAULT_SUPABASE_URL;
-        state.supabaseKey = localStorage.getItem('supabase_key') || DEFAULT_SUPABASE_KEY;
-        await initSupabase();
-      } else {
-        loginScreen.classList.remove('hidden');
-        loginUser.focus();
+// ==========================================================
+    // INYECCIÓN AUTOMÁTICA DE MENÚ Y VISTA EMPRENDIMIENTO
+    // ==========================================================
+    function inicializarUIEmprendimiento() {
+      // 1. Inyectar la sección principal si aún no existe
+      const mainContainer = document.querySelector('main');
+      if (mainContainer && !document.getElementById('tab-emprendimiento')) {
+        const sec = document.createElement('section');
+        sec.id = 'tab-emprendimiento';
+        sec.className = 'tab-section hidden space-y-5';
+        sec.innerHTML = `
+          <div class="bg-gradient-to-r from-slate-900 via-emerald-950/30 to-slate-900 border border-emerald-900/40 rounded-2xl p-4 sm:p-5 shadow-xl">
+            <h2 class="text-xl font-black text-white flex items-center gap-2">
+              <span>🍦</span> Mi Emprendimiento: Bolis & Obleas
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Control diario de inventario, ventas, insumos y ganancias netas.</p>
+          </div>
+          <div id="emprendimientoContainer"></div>
+        `;
+        mainContainer.appendChild(sec);
       }
+
+      // 2. Identificar bloques de Universidad en menús (escritorio y móvil) y marcarlos solo para dgcano
+      document.querySelectorAll('#accordion-content-universidad, #mobile-accordion-content-universidad').forEach(el => {
+        const wrapper = el.parentElement;
+        if (wrapper) wrapper.setAttribute('data-only-user', 'dgcano');
+      });
+
+      // 3. Inyectar botón de Emprendimiento en el menú lateral y móvil (solo para kkvargas)
+      const menuContainers = [
+        document.querySelector('#desktopSidebar'),
+        document.querySelector('#mobileDrawer nav')
+      ];
+      menuContainers.forEach((nav, idx) => {
+        if (nav && !nav.querySelector('[data-only-user="kkvargas"]')) {
+          const div = document.createElement('div');
+          div.setAttribute('data-only-user', 'kkvargas');
+          div.className = 'hidden pt-2 border-t border-slate-800/80';
+          div.innerHTML = `
+            <div class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider px-3 mb-2">Mi Emprendimiento</div>
+            <button data-tab="emprendimiento" onclick="window.switchTab('emprendimiento')" class="${idx === 0 ? 'nav-btn' : 'drawer-nav-btn'} w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl font-medium text-sm text-slate-300 hover:bg-slate-800/60 transition-colors">
+              <span>🍦</span>
+              <span>Inventario & Ganancias</span>
+            </button>
+          `;
+          nav.appendChild(div);
+        }
+      });
     }
 
-    formLogin.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const u = loginUser.value.trim();
-      const p = loginPass.value;
+    async function renderEmprendimientoDinamico(state) {
+      inicializarUIEmprendimiento();
+      const mod = await import('./emprendimiento.js');
+      mod.renderEmprendimiento(state);
+    }
 
-      if (u === AUTH_USER && p === AUTH_PASS) {
-        localStorage.setItem('auth_user', AUTH_USER);
-        loginErrorMsg.classList.add('hidden');
-        loginScreen.classList.add('hidden');
-        showToast('¡Bienvenido, Didier! Conectando a Supabase...', 'success');
+    // Alias para que las llamadas existentes a renderEmprendimiento funcionen sin import estático
+    const renderEmprendimiento = (st) => renderEmprendimientoDinamico(st);
+    
+    
+    const USUARIOS_AUTORIZADOS = {
+  'dgcano': 'NominaDcg*',
+  'kkvargas': 'Nomina2002'
+};
 
-        // Conectar automáticamente a Supabase
-        state.supabaseUrl = localStorage.getItem('supabase_url') || DEFAULT_SUPABASE_URL;
-        state.supabaseKey = localStorage.getItem('supabase_key') || DEFAULT_SUPABASE_KEY;
-        await initSupabase();
-      } else {
-        loginErrorMsg.classList.remove('hidden');
-      }
-    });
+function aplicarPermisosVistaUsuario(usuario) {
+  document.querySelectorAll('[data-only-user]').forEach(el => {
+    el.classList.toggle('hidden', el.getAttribute('data-only-user') !== usuario);
+  });
+  if (usuario === 'kkvargas') {
+    renderEmprendimiento(state);
+  }
+}
 
-    btnTogglePassVisibility.addEventListener('click', () => {
-      const isPass = loginPass.type === 'password';
-      loginPass.type = isPass ? 'text' : 'password';
-    });
+window.ajustarStockEmprendimiento = function(idx, delta) {
+  const prod = state.emprendimiento.productos[idx];
+  if (!prod) return;
+  prod.stock = Math.max(0, (Number(prod.stock) || 0) + delta);
+  guardarEnLocalStorage();
+  renderEmprendimiento(state);
+};
 
-    window.cerrarSesion = function() {
-      if (confirm('¿Deseas cerrar la sesión?')) {
-        localStorage.removeItem('auth_user');
-        loginPass.value = '';
-        loginScreen.classList.remove('hidden');
-        const drawer = document.getElementById('mobileDrawer');
-        if (drawer) drawer.classList.add('hidden');
-      }
-    };
+window.ajustarStockMasivo = function(idx) {
+  const prod = state.emprendimiento.productos[idx];
+  if (!prod) return;
+  const cant = parseInt(prompt(`¿Cuántas unidades nuevas de "${prod.nombre}" entraron?`, '10'), 10);
+  if (!isNaN(cant) && cant > 0) {
+    prod.stock = (Number(prod.stock) || 0) + cant;
+    guardarEnLocalStorage();
+    renderEmprendimiento(state);
+    showToast(`+${cant} unidades agregadas a ${prod.nombre}`, 'success');
+  }
+};
 
-    if (btnLogout) btnLogout.addEventListener('click', window.cerrarSesion);
+window.editarPrecioProducto = function(idx) {
+  const prod = state.emprendimiento.productos[idx];
+  if (!prod) return;
+  const nuevoPrecio = parseMonto(prompt(`Nuevo precio para "${prod.nombre}":`, prod.precioVenta));
+  if (nuevoPrecio > 0) {
+    prod.precioVenta = nuevoPrecio;
+    guardarEnLocalStorage();
+    renderEmprendimiento(state);
+  }
+};
+
+window.agregarProductoEmprendimiento = function() {
+  const nombre = prompt('Nombre del producto (ej: Oblea Especial, Boli Mango):');
+  if (!nombre || !nombre.trim()) return;
+  const precio = parseMonto(prompt('Precio de venta ($):', '1000'));
+  if (precio <= 0) return;
+  state.emprendimiento.productos.push({
+    id: 'prod_' + Date.now(),
+    nombre: nombre.trim(),
+    precioVenta: precio,
+    stock: 0
+  });
+  guardarEnLocalStorage();
+  renderEmprendimiento(state);
+};
+
+window.registrarVentaEmprendimiento = function() {
+  const prodId = document.getElementById('empVentaProducto')?.value;
+  const cant = parseInt(document.getElementById('empVentaCantidad')?.value, 10) || 1;
+  const prod = state.emprendimiento.productos.find(p => p.id === prodId);
+  if (!prod || cant <= 0) return;
+
+  prod.stock = Math.max(0, (Number(prod.stock) || 0) - cant);
+  const total = prod.precioVenta * cant;
+
+  state.emprendimiento.movimientos.unshift({
+    id: 'emp_' + Date.now(),
+    fecha: new Date().toISOString().slice(0, 10),
+    tipo: 'Venta',
+    detalle: prod.nombre,
+    cantidad: cant,
+    total: total
+  });
+
+  guardarEnLocalStorage();
+  renderEmprendimiento(state);
+  showToast(`Venta registrada: +${formatCOP(total)}`, 'success');
+};
+
+window.registrarGastoEmprendimiento = function() {
+  const concepto = document.getElementById('empGastoConcepto')?.value.trim();
+  const monto = parseMonto(document.getElementById('empGastoMonto')?.value);
+  if (!concepto || monto <= 0) {
+    alert('Ingresa el concepto del gasto y un monto mayor a 0.');
+    return;
+  }
+
+  state.emprendimiento.movimientos.unshift({
+    id: 'emp_' + Date.now(),
+    fecha: new Date().toISOString().slice(0, 10),
+    tipo: 'Gasto',
+    detalle: concepto,
+    cantidad: null,
+    total: monto
+  });
+
+  guardarEnLocalStorage();
+  renderEmprendimiento(state);
+  showToast(`Gasto registrado: -${formatCOP(monto)}`, 'info');
+};
+
+window.eliminarMovimientoEmprendimiento = function(idx) {
+  if (!confirm('¿Eliminar este movimiento?')) return;
+  state.emprendimiento.movimientos.splice(idx, 1);
+  guardarEnLocalStorage();
+  renderEmprendimiento(state);
+};
+
+const loginScreen = document.getElementById('loginScreen');
+const formLogin = document.getElementById('formLogin');
+const loginUser = document.getElementById('loginUser');
+const loginPass = document.getElementById('loginPass');
+const loginErrorMsg = document.getElementById('loginErrorMsg');
+const btnLogout = document.getElementById('btnLogout');
+const btnTogglePassVisibility = document.getElementById('btnTogglePassVisibility');
+
+async function checkAuth() {
+  const savedUser = (localStorage.getItem('auth_user') || '').toLowerCase();
+  if (savedUser && USUARIOS_AUTORIZADOS[savedUser]) {
+    loginScreen.classList.add('hidden');
+    aplicarPermisosVistaUsuario(savedUser);
+    state.supabaseUrl = localStorage.getItem('supabase_url') || DEFAULT_SUPABASE_URL;
+    state.supabaseKey = localStorage.getItem('supabase_key') || DEFAULT_SUPABASE_KEY;
+    await initSupabase();
+    aplicarPermisosVistaUsuario(savedUser);
+  } else {
+    loginScreen.classList.remove('hidden');
+    loginUser.focus();
+  }
+}
+
+formLogin.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const u = loginUser.value.trim().toLowerCase();
+  const p = loginPass.value;
+
+  if (USUARIOS_AUTORIZADOS[u] && USUARIOS_AUTORIZADOS[u] === p) {
+    localStorage.setItem('auth_user', u);
+    loginErrorMsg.classList.add('hidden');
+    loginScreen.classList.add('hidden');
+    aplicarPermisosVistaUsuario(u);
+    showToast('¡Bienvenido! Conectando a Supabase...', 'success');
+
+    state.supabaseUrl = localStorage.getItem('supabase_url') || DEFAULT_SUPABASE_URL;
+    state.supabaseKey = localStorage.getItem('supabase_key') || DEFAULT_SUPABASE_KEY;
+    await initSupabase();
+    aplicarPermisosVistaUsuario(u);
+  } else {
+    loginErrorMsg.classList.remove('hidden');
+  }
+});
+
+btnTogglePassVisibility.addEventListener('click', () => {
+  loginPass.type = loginPass.type === 'password' ? 'text' : 'password';
+});
+
+window.cerrarSesion = function() {
+  if (confirm('¿Deseas cerrar la sesión?')) {
+    localStorage.removeItem('auth_user');
+    loginPass.value = '';
+    loginScreen.classList.remove('hidden');
+    document.getElementById('mobileDrawer')?.classList.add('hidden');
+  }
+};
+
+if (btnLogout) btnLogout.addEventListener('click', window.cerrarSesion);
 
     // ==========================================================
     // 2. MENÚ DRAWER VERTICAL PARA CELULAR
