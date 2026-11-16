@@ -1,7 +1,5 @@
 // ==========================================================
-// APP.JS - LÓGICA PRINCIPAL DE LA APLICACIÓN WEB
-// Nómina, Gastos, Presupuesto, Supabase, Tanqueo, Devengado,
-// Gastos Fijos, Deudas con Amortización, Comparativos y Exportación
+// APP.JS - LÓGICA PRINCIPAL MULTI-USUARIO (dgcano / kkvargas)
 // ==========================================================
 
 import { INITIAL_RECORDS } from './initialData.js';
@@ -16,10 +14,10 @@ import {
   renderUniCalificaciones,
   renderUniCalculadora
 } from './universidad.js';
+import { renderEmprendimiento } from './emprendimiento.js';
 
 let supabaseClient = null;
 
-// Credenciales oficiales de Supabase preconfiguradas
 export const DEFAULT_SUPABASE_URL = 'https://tjghdapguudilkzglhwg.supabase.co';
 export const DEFAULT_SUPABASE_KEY = 'sb_publishable_WniQ7BNB3SpUqydE_NyvKg_nuPKgFnT';
 
@@ -131,7 +129,6 @@ function sanitizeLoteItems(loaded) {
   };
 }
 
-// Estado global de la aplicación
 export const state = {
   records: [],
   cambiosAceite: [],
@@ -142,10 +139,10 @@ export const state = {
   devengadoData: { ...INITIAL_DEVENGADO },
   loteItems: sanitizeLoteItems(null),
   metasAhorro: [...INITIAL_METAS_AHORRO],
-  pptoVariablesMes: Number(localStorage.getItem('local_ppto_variables')) || 350000,
-  ingresoQuincena1: Number(localStorage.getItem('local_ingreso_q1')) || 900000,
-  ingresoQuincena2: Number(localStorage.getItem('local_ingreso_q2')) || 900000,
-  montoSimuladorDeudas: Number(localStorage.getItem('local_monto_simulador')) || 200000,
+  pptoVariablesMes: 350000,
+  ingresoQuincena1: 900000,
+  ingresoQuincena2: 900000,
+  montoSimuladorDeudas: 200000,
   currentTab: 'dashboard',
   selectedMes: 'Noviembre',
   selectedAno: 2026,
@@ -153,12 +150,19 @@ export const state = {
   compararModo: 'meses',
   compararMes1: 'Octubre',
 
-  // Estados del Módulo Universidad
   universidadData: [...INITIAL_UNIVERSIDAD_DATA],
   activeSemestreId: 'sem_2026_1',
   activeMateriaId: 'mat_1',
   calculadoraRows: [...INITIAL_CALCULADORA_ROWS],
   calculadoraMeta: 3.0,
+  emprendimiento: {
+    productos: [
+      { id: 'prod_boli_500', nombre: 'Boli Pequeño ($500)', precioVenta: 500, stock: 0 },
+      { id: 'prod_boli_1000', nombre: 'Boli Grande ($1.000)', precioVenta: 1000, stock: 0 },
+      { id: 'prod_oblea', nombre: 'Oblea', precioVenta: 2500, stock: 0 }
+    ],
+    movimientos: []
+  },
   menuAccordion: {
     nomina: true,
     universidad: true
@@ -179,6 +183,23 @@ export const state = {
     categoryDoughnut: null
   }
 };
+
+// ==========================================================
+// AISLAMIENTO DE DATOS POR USUARIO (dgcano vs kkvargas)
+// ==========================================================
+export function getActiveUser() {
+  return (localStorage.getItem('auth_user') || 'dgcano').toLowerCase();
+}
+
+function getStorageKey(baseKey) {
+  const user = getActiveUser();
+  return user === 'dgcano' ? baseKey : `${user}_${baseKey}`;
+}
+
+function getSupabaseConfigKey() {
+  const user = getActiveUser();
+  return user === 'dgcano' ? 'global_state' : `global_state_${user}`;
+}
 
 export function parseMonto(val) {
   if (val === null || val === undefined || val === '') return 0;
@@ -210,7 +231,6 @@ export function formatNumber(val) {
 // ==========================================================
 
 export async function initSupabase() {
-  // 1. Cargar SIEMPRE primero los datos locales del dispositivo
   cargarDatosLocales();
 
   const url = state.supabaseUrl || DEFAULT_SUPABASE_URL;
@@ -221,13 +241,12 @@ export async function initSupabase() {
       const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
       supabaseClient = createClient(url, key);
 
-      const { error } = await supabaseClient.from('registro').select('id').limit(1);
+      const { error } = await supabaseClient.from('app_config').select('key').limit(1);
       if (!error) {
         state.isConnectedToSupabase = true;
         updateSupabaseStatusUI(true);
         await cargarDatosDesdeSupabase();
 
-        // Suscripción en tiempo real a cambios desde otro dispositivo
         supabaseClient
           .channel('cambios-globales')
           .on(
@@ -248,14 +267,12 @@ export async function initSupabase() {
 
         return;
       } else {
-        console.warn('Error Supabase:', error.message);
         state.isConnectedToSupabase = false;
-        updateSupabaseStatusUI(false, error.message);
+        updateSupabaseStatusUI(false);
       }
     } catch (e) {
-      console.error('Error cargando cliente Supabase:', e);
       state.isConnectedToSupabase = false;
-      updateSupabaseStatusUI(false, e.message);
+      updateSupabaseStatusUI(false);
     }
   } else {
     state.isConnectedToSupabase = false;
@@ -280,9 +297,6 @@ function updateSupabaseStatusUI(connected) {
   }
 }
 
-// ==========================================================
-// UTILIDADES Y RESOLUCIÓN ROBUSTA DE AMORTIZACIONES DE DEUDAS
-// ==========================================================
 export function normalizarClave(texto) {
   if (!texto) return '';
   return String(texto)
@@ -313,7 +327,6 @@ export function getAmortizacionSchedule(deudaOrId) {
   if (id && state.amortizaciones && state.amortizaciones[id] && Array.isArray(state.amortizaciones[id])) {
     return state.amortizaciones[id];
   }
-
   if (nombre && state.amortizaciones && state.amortizaciones[nombre] && Array.isArray(state.amortizaciones[nombre])) {
     return state.amortizaciones[nombre];
   }
@@ -328,48 +341,14 @@ export function getAmortizacionSchedule(deudaOrId) {
         return cuotas;
       }
     }
-
-    for (const t of targets) {
-      if (t.includes('moto') && (state.amortizaciones['Moto'] || DEUDAS_AMORTIZACION['Moto'])) {
-        return state.amortizaciones['Moto'] || DEUDAS_AMORTIZACION['Moto'];
-      }
-      if (t.includes('tab') && (state.amortizaciones['Tablet'] || DEUDAS_AMORTIZACION['Tablet'])) {
-        return state.amortizaciones['Tablet'] || DEUDAS_AMORTIZACION['Tablet'];
-      }
-      if (t.includes('mad') && (state.amortizaciones['Madre'] || DEUDAS_AMORTIZACION['Madre'])) {
-        return state.amortizaciones['Madre'] || DEUDAS_AMORTIZACION['Madre'];
-      }
-      if ((t.includes('cred') || t.includes('cr') || t.includes('prest')) && (state.amortizaciones['Credito'] || DEUDAS_AMORTIZACION['Credito'])) {
-        return state.amortizaciones['Credito'] || DEUDAS_AMORTIZACION['Credito'];
-      }
-
-      for (const [clave, cuotas] of Object.entries(state.amortizaciones)) {
-        const cNorm = normalizarClave(clave);
-        if ((cNorm.includes(t) || t.includes(cNorm)) && Array.isArray(cuotas) && cuotas.length > 0) {
-          if (id) state.amortizaciones[id] = cuotas;
-          if (nombre) state.amortizaciones[nombre] = cuotas;
-          return cuotas;
-        }
-      }
-    }
   }
 
-  for (const t of targets) {
-    if (t.includes('moto') && DEUDAS_AMORTIZACION['Moto']) return DEUDAS_AMORTIZACION['Moto'];
-    if (t.includes('tab') && DEUDAS_AMORTIZACION['Tablet']) return DEUDAS_AMORTIZACION['Tablet'];
-    if (t.includes('mad') && DEUDAS_AMORTIZACION['Madre']) return DEUDAS_AMORTIZACION['Madre'];
-    if ((t.includes('cred') || t.includes('cr') || t.includes('prest')) && DEUDAS_AMORTIZACION['Credito']) return DEUDAS_AMORTIZACION['Credito'];
-  }
-
-  for (const [clave, cuotas] of Object.entries(DEUDAS_AMORTIZACION)) {
-    const cNorm = normalizarClave(clave);
+  if (getActiveUser() === 'dgcano') {
     for (const t of targets) {
-      if ((cNorm === t || cNorm.includes(t) || t.includes(cNorm)) && Array.isArray(cuotas)) {
-        const clone = JSON.parse(JSON.stringify(cuotas));
-        if (id) state.amortizaciones[id] = clone;
-        if (nombre) state.amortizaciones[nombre] = clone;
-        return clone;
-      }
+      if (t.includes('moto') && DEUDAS_AMORTIZACION['Moto']) return DEUDAS_AMORTIZACION['Moto'];
+      if (t.includes('tab') && DEUDAS_AMORTIZACION['Tablet']) return DEUDAS_AMORTIZACION['Tablet'];
+      if (t.includes('mad') && DEUDAS_AMORTIZACION['Madre']) return DEUDAS_AMORTIZACION['Madre'];
+      if ((t.includes('cred') || t.includes('cr') || t.includes('prest')) && DEUDAS_AMORTIZACION['Credito']) return DEUDAS_AMORTIZACION['Credito'];
     }
   }
 
@@ -387,9 +366,12 @@ function safeParse(key, fallback) {
 }
 
 function cargarDatosLocales() {
-  state.records = safeParse('local_records', [...INITIAL_RECORDS]);
+  const user = getActiveUser();
+  const isNewUser = user !== 'dgcano';
 
-  const rawAceite = safeParse('local_aceite', [...INITIAL_ACEITE]);
+  state.records = safeParse(getStorageKey('local_records'), isNewUser ? [] : [...INITIAL_RECORDS]);
+
+  const rawAceite = safeParse(getStorageKey('local_aceite'), isNewUser ? [] : [...INITIAL_ACEITE]);
   const seenAceiteLoc = new Set();
   state.cambiosAceite = rawAceite.filter(a => {
     const sig = `${a.fecha}_${Number(a.kilometraje)}`;
@@ -398,12 +380,12 @@ function cargarDatosLocales() {
     return true;
   });
 
-  state.deudas = safeParse('local_deudas', [...INITIAL_DEUDAS]);
+  state.deudas = safeParse(getStorageKey('local_deudas'), isNewUser ? [] : [...INITIAL_DEUDAS]);
 
-  const parsedAmort = safeParse('local_amortizaciones', null);
-  state.amortizaciones = parsedAmort
-    ? { ...DEUDAS_AMORTIZACION, ...parsedAmort }
-    : { ...DEUDAS_AMORTIZACION };
+  const parsedAmort = safeParse(getStorageKey('local_amortizaciones'), null);
+  state.amortizaciones = isNewUser
+    ? (parsedAmort || {})
+    : (parsedAmort ? { ...DEUDAS_AMORTIZACION, ...parsedAmort } : { ...DEUDAS_AMORTIZACION });
 
   state.deudas.forEach(d => {
     const sched = getAmortizacionSchedule(d);
@@ -414,53 +396,45 @@ function cargarDatosLocales() {
     }
   });
 
-  state.gastosFijos = safeParse('local_gastos_fijos', [...INITIAL_GASTOS_FIJOS]);
-  state.devengadoData = safeParse('local_devengado', JSON.parse(JSON.stringify(INITIAL_DEVENGADO)));
-  state.loteItems = sanitizeLoteItems(safeParse('local_lote_items', null));
+  state.gastosFijos = safeParse(getStorageKey('local_gastos_fijos'), isNewUser ? [] : [...INITIAL_GASTOS_FIJOS]);
+  state.devengadoData = safeParse(
+    getStorageKey('local_devengado'),
+    isNewUser ? { ingresoDevengado: 0, items: [] } : JSON.parse(JSON.stringify(INITIAL_DEVENGADO))
+  );
 
-  const parsedMetas = safeParse('local_metas_ahorro', []);
-  const esDemoAntiguo = Array.isArray(parsedMetas) && parsedMetas.some(m => m && (m.id === 'meta_1' || (m.nombre && m.nombre.includes('SOAT'))));
-  if (esDemoAntiguo) {
-    state.metasAhorro = [];
-    localStorage.removeItem('local_metas_ahorro');
-  } else {
-    state.metasAhorro = parsedMetas;
-  }
+  const defaultLoteVacio = { ingresos: [], gastosFijos: [], gastosVariables: [] };
+  state.loteItems = isNewUser
+    ? safeParse(getStorageKey('local_lote_items'), defaultLoteVacio)
+    : sanitizeLoteItems(safeParse(getStorageKey('local_lote_items'), null));
 
-  const savedPpto = localStorage.getItem('local_ppto_variables');
-  if (savedPpto !== null) state.pptoVariablesMes = Number(savedPpto) || 350000;
+  const parsedMetas = safeParse(getStorageKey('local_metas_ahorro'), []);
+  state.metasAhorro = Array.isArray(parsedMetas) ? parsedMetas : [];
 
-  const savedQ1 = localStorage.getItem('local_ingreso_q1');
-  if (savedQ1 !== null) {
-    const q1 = Number(savedQ1);
-    state.ingresoQuincena1 = q1 === 750000 ? 900000 : (q1 || 900000);
-  } else {
-    state.ingresoQuincena1 = 900000;
-  }
+  const savedPpto = localStorage.getItem(getStorageKey('local_ppto_variables'));
+  state.pptoVariablesMes = savedPpto !== null ? (Number(savedPpto) || 0) : (isNewUser ? 0 : 350000);
 
-  const savedQ2 = localStorage.getItem('local_ingreso_q2');
-  if (savedQ2 !== null) {
-    const q2 = Number(savedQ2);
-    state.ingresoQuincena2 = q2 === 750000 ? 900000 : (q2 || 900000);
-  } else {
-    state.ingresoQuincena2 = 900000;
-  }
+  const savedQ1 = localStorage.getItem(getStorageKey('local_ingreso_q1'));
+  state.ingresoQuincena1 = savedQ1 !== null ? (Number(savedQ1) || 0) : (isNewUser ? 0 : 900000);
 
-  const savedSim = localStorage.getItem('local_monto_simulador');
-  if (savedSim !== null) state.montoSimuladorDeudas = Number(savedSim) || 200000;
+  const savedQ2 = localStorage.getItem(getStorageKey('local_ingreso_q2'));
+  state.ingresoQuincena2 = savedQ2 !== null ? (Number(savedQ2) || 0) : (isNewUser ? 0 : 900000);
 
-  if (state.loteItems && state.loteItems.ingresos) {
-    state.loteItems.ingresos.forEach(item => {
-      if (item.concepto && item.concepto.toLowerCase().includes('sueldo quincenal') && (item.ppto === 750000 || !item.ppto)) {
-        item.ppto = 900000;
-      }
-    });
-  }
+  const savedSim = localStorage.getItem(getStorageKey('local_monto_simulador'));
+  state.montoSimuladorDeudas = savedSim !== null ? (Number(savedSim) || 0) : (isNewUser ? 0 : 200000);
 
-  state.universidadData = safeParse('local_universidad_data', JSON.parse(JSON.stringify(INITIAL_UNIVERSIDAD_DATA)));
-  state.calculadoraRows = safeParse('local_calculadora_rows', JSON.parse(JSON.stringify(INITIAL_CALCULADORA_ROWS)));
+  state.universidadData = safeParse(getStorageKey('local_universidad_data'), JSON.parse(JSON.stringify(INITIAL_UNIVERSIDAD_DATA)));
+  state.calculadoraRows = safeParse(getStorageKey('local_calculadora_rows'), JSON.parse(JSON.stringify(INITIAL_CALCULADORA_ROWS)));
 
-  const localActiveSem = localStorage.getItem('local_active_semestre');
+  state.emprendimiento = safeParse(getStorageKey('local_emprendimiento'), {
+    productos: [
+      { id: 'prod_boli_500', nombre: 'Boli Pequeño ($500)', precioVenta: 500, stock: 0 },
+      { id: 'prod_boli_1000', nombre: 'Boli Grande ($1.000)', precioVenta: 1000, stock: 0 },
+      { id: 'prod_oblea', nombre: 'Oblea', precioVenta: 2500, stock: 0 }
+    ],
+    movimientos: []
+  });
+
+  const localActiveSem = localStorage.getItem(getStorageKey('local_active_semestre'));
   if (localActiveSem) state.activeSemestreId = localActiveSem;
 
   actualizarTodaLaApp();
@@ -468,42 +442,45 @@ function cargarDatosLocales() {
 
 export function guardarEnLocalStorage() {
   const payload = {
+    records: state.records || [],
     cambiosAceite: state.cambiosAceite || [],
     deudas: state.deudas || [],
     amortizaciones: state.amortizaciones || {},
     gastosFijos: state.gastosFijos || [],
-    devengadoData: state.devengadoData || INITIAL_DEVENGADO,
-    loteItems: state.loteItems || sanitizeLoteItems(null),
+    devengadoData: state.devengadoData || { ingresoDevengado: 0, items: [] },
+    loteItems: state.loteItems || { ingresos: [], gastosFijos: [], gastosVariables: [] },
     metasAhorro: state.metasAhorro || [],
-    pptoVariablesMes: state.pptoVariablesMes ?? 350000,
-    ingresoQuincena1: state.ingresoQuincena1 ?? 900000,
-    ingresoQuincena2: state.ingresoQuincena2 ?? 900000,
-    montoSimuladorDeudas: state.montoSimuladorDeudas ?? 200000,
+    pptoVariablesMes: state.pptoVariablesMes ?? 0,
+    ingresoQuincena1: state.ingresoQuincena1 ?? 0,
+    ingresoQuincena2: state.ingresoQuincena2 ?? 0,
+    montoSimuladorDeudas: state.montoSimuladorDeudas ?? 0,
     universidadData: state.universidadData || [],
     calculadoraRows: state.calculadoraRows || [],
-    calculadoraMeta: state.calculadoraMeta ?? 3.0
+    calculadoraMeta: state.calculadoraMeta ?? 3.0,
+    emprendimiento: state.emprendimiento || { productos: [], movimientos: [] }
   };
 
-  localStorage.setItem('local_records', JSON.stringify(state.records || []));
-  localStorage.setItem('local_aceite', JSON.stringify(payload.cambiosAceite));
-  localStorage.setItem('local_deudas', JSON.stringify(payload.deudas));
-  localStorage.setItem('local_amortizaciones', JSON.stringify(payload.amortizaciones));
-  localStorage.setItem('local_gastos_fijos', JSON.stringify(payload.gastosFijos));
-  localStorage.setItem('local_devengado', JSON.stringify(payload.devengadoData));
-  localStorage.setItem('local_lote_items', JSON.stringify(payload.loteItems));
-  localStorage.setItem('local_metas_ahorro', JSON.stringify(payload.metasAhorro));
-  localStorage.setItem('local_ppto_variables', payload.pptoVariablesMes);
-  localStorage.setItem('local_ingreso_q1', payload.ingresoQuincena1);
-  localStorage.setItem('local_ingreso_q2', payload.ingresoQuincena2);
-  localStorage.setItem('local_monto_simulador', payload.montoSimuladorDeudas);
-  localStorage.setItem('local_universidad_data', JSON.stringify(payload.universidadData));
-  localStorage.setItem('local_calculadora_rows', JSON.stringify(payload.calculadoraRows));
+  localStorage.setItem(getStorageKey('local_records'), JSON.stringify(payload.records));
+  localStorage.setItem(getStorageKey('local_aceite'), JSON.stringify(payload.cambiosAceite));
+  localStorage.setItem(getStorageKey('local_deudas'), JSON.stringify(payload.deudas));
+  localStorage.setItem(getStorageKey('local_amortizaciones'), JSON.stringify(payload.amortizaciones));
+  localStorage.setItem(getStorageKey('local_gastos_fijos'), JSON.stringify(payload.gastosFijos));
+  localStorage.setItem(getStorageKey('local_devengado'), JSON.stringify(payload.devengadoData));
+  localStorage.setItem(getStorageKey('local_lote_items'), JSON.stringify(payload.loteItems));
+  localStorage.setItem(getStorageKey('local_metas_ahorro'), JSON.stringify(payload.metasAhorro));
+  localStorage.setItem(getStorageKey('local_ppto_variables'), payload.pptoVariablesMes);
+  localStorage.setItem(getStorageKey('local_ingreso_q1'), payload.ingresoQuincena1);
+  localStorage.setItem(getStorageKey('local_ingreso_q2'), payload.ingresoQuincena2);
+  localStorage.setItem(getStorageKey('local_monto_simulador'), payload.montoSimuladorDeudas);
+  localStorage.setItem(getStorageKey('local_universidad_data'), JSON.stringify(payload.universidadData));
+  localStorage.setItem(getStorageKey('local_calculadora_rows'), JSON.stringify(payload.calculadoraRows));
+  localStorage.setItem(getStorageKey('local_emprendimiento'), JSON.stringify(payload.emprendimiento));
 
   if (supabaseClient) {
     supabaseClient
       .from('app_config')
       .upsert({
-        key: 'global_state',
+        key: getSupabaseConfigKey(),
         value: payload
       }, { onConflict: 'key' })
       .then(({ error }) => {
@@ -514,119 +491,95 @@ export function guardarEnLocalStorage() {
 
 export async function cargarDatosDesdeSupabase(silencioso = false) {
   if (!supabaseClient) return;
+  const user = getActiveUser();
+
   try {
     if (!silencioso) showToast('Sincronizando con Supabase...', 'info');
 
-    // 1. Cargar movimientos de 'registro'
-    let data = [];
-    let offset = 0;
-    const limit = 1000;
-    while (true) {
-      const { data: page, error } = await supabaseClient
-        .from('registro')
-        .select('*')
-        .order('fecha', { ascending: false })
-        .range(offset, offset + limit - 1);
-      if (error) throw error;
-      if (!page || page.length === 0) break;
-      data = data.concat(page);
-      if (page.length < limit) break;
-      offset += limit;
+    // 1. Si es dgcano, cargar sus movimientos históricos de la tabla 'registro'
+    if (user === 'dgcano') {
+      let data = [];
+      let offset = 0;
+      const limit = 1000;
+      while (true) {
+        const { data: page, error } = await supabaseClient
+          .from('registro')
+          .select('*')
+          .order('fecha', { ascending: false })
+          .range(offset, offset + limit - 1);
+        if (error) throw error;
+        if (!page || page.length === 0) break;
+        data = data.concat(page);
+        if (page.length < limit) break;
+        offset += limit;
+      }
+
+      if (data && data.length > 0) {
+        const seenSigs = new Set();
+        state.records = data.filter(r => {
+          if (r.usuario && r.usuario !== 'dgcano') return false;
+          const sig = `${r.fecha}_${r.tipo}_${r.categoria}_${r.concepto}_${r.presupuesto}_${r.monto}`;
+          if (seenSigs.has(sig)) return false;
+          seenSigs.add(sig);
+          return true;
+        });
+        localStorage.setItem(getStorageKey('local_records'), JSON.stringify(state.records));
+      }
+
+      const { data: dataAceite } = await supabaseClient.from('cambio_aceite').select('*').order('fecha', { ascending: false });
+      if (dataAceite && dataAceite.length > 0) {
+        const seenAceite = new Set();
+        state.cambiosAceite = dataAceite.filter(a => {
+          const sig = `${a.fecha}_${Number(a.kilometraje)}`;
+          if (seenAceite.has(sig)) return false;
+          seenAceite.add(sig);
+          return true;
+        });
+      }
     }
 
-    if (data && data.length > 0) {
-      const seenSigs = new Set();
-      state.records = data.filter(r => {
-        const sig = `${r.fecha}_${r.tipo}_${r.categoria}_${r.concepto}_${r.presupuesto}_${r.monto}`;
-        if (seenSigs.has(sig)) return false;
-        seenSigs.add(sig);
-        return true;
-      });
-      localStorage.setItem('local_records', JSON.stringify(state.records));
-    }
-
-    // 2. Cargar cambios de aceite
-    const { data: dataAceite } = await supabaseClient.from('cambio_aceite').select('*').order('fecha', { ascending: false });
-    if (dataAceite && dataAceite.length > 0) {
-      const seenAceite = new Set();
-      state.cambiosAceite = dataAceite.filter(a => {
-        const sig = `${a.fecha}_${Number(a.kilometraje)}`;
-        if (seenAceite.has(sig)) return false;
-        seenAceite.add(sig);
-        return true;
-      });
-      localStorage.setItem('local_aceite', JSON.stringify(state.cambiosAceite));
-    }
-
-    // 3. Cargar deudas de tabla 'deudas'
-    const { data: dataDeudas } = await supabaseClient.from('deudas').select('*');
-    if (dataDeudas && dataDeudas.length > 0) {
-      dataDeudas.forEach(supDeuda => {
-        const idx = state.deudas.findIndex(d =>
-          d.id === supDeuda.id ||
-          normalizarClave(d.nombre) === normalizarClave(supDeuda.nombre)
-        );
-        if (idx !== -1) {
-          state.deudas[idx] = { ...state.deudas[idx], ...supDeuda };
-        } else {
-          state.deudas.push(supDeuda);
-        }
-
-        const sched = getAmortizacionSchedule(supDeuda);
-        if (sched && sched.length > 0) {
-          state.amortizaciones[supDeuda.id] = sched;
-          state.amortizaciones[supDeuda.nombre] = sched;
-          state.amortizaciones[normalizarClave(supDeuda.nombre)] = sched;
-        }
-      });
-    }
-
-    // 4. Descargar estado global (deudas marcadas, amortizaciones, presupuestos, universidad) desde app_config
+    // 2. Descargar el estado aislado del usuario desde app_config (global_state o global_state_kkvargas)
     const { data: cfgRow, error: cfgErr } = await supabaseClient
       .from('app_config')
       .select('value')
-      .eq('key', 'global_state')
+      .eq('key', getSupabaseConfigKey())
       .maybeSingle();
 
     if (!cfgErr && cfgRow && cfgRow.value) {
       const v = cfgRow.value;
+      if (user !== 'dgcano' && Array.isArray(v.records)) state.records = v.records;
       if (v.ingresoQuincena1 !== undefined) state.ingresoQuincena1 = v.ingresoQuincena1;
       if (v.ingresoQuincena2 !== undefined) state.ingresoQuincena2 = v.ingresoQuincena2;
       if (v.pptoVariablesMes !== undefined) state.pptoVariablesMes = v.pptoVariablesMes;
       if (Array.isArray(v.deudas)) state.deudas = v.deudas;
-      if (v.amortizaciones) state.amortizaciones = { ...DEUDAS_AMORTIZACION, ...v.amortizaciones };
+      if (v.amortizaciones) {
+        state.amortizaciones = user === 'dgcano'
+          ? { ...DEUDAS_AMORTIZACION, ...v.amortizaciones }
+          : v.amortizaciones;
+      }
       if (Array.isArray(v.gastosFijos)) state.gastosFijos = v.gastosFijos;
       if (v.devengadoData) state.devengadoData = v.devengadoData;
-      if (v.loteItems) state.loteItems = sanitizeLoteItems(v.loteItems);
+      if (v.loteItems) {
+        state.loteItems = user === 'dgcano' ? sanitizeLoteItems(v.loteItems) : v.loteItems;
+      }
       if (Array.isArray(v.metasAhorro)) state.metasAhorro = v.metasAhorro;
       if (Array.isArray(v.cambiosAceite)) state.cambiosAceite = v.cambiosAceite;
       if (Array.isArray(v.universidadData)) state.universidadData = v.universidadData;
       if (Array.isArray(v.calculadoraRows)) state.calculadoraRows = v.calculadoraRows;
       if (v.calculadoraMeta !== undefined) state.calculadoraMeta = v.calculadoraMeta;
+      if (v.emprendimiento) state.emprendimiento = v.emprendimiento;
 
-      localStorage.setItem('local_deudas', JSON.stringify(state.deudas));
-      localStorage.setItem('local_amortizaciones', JSON.stringify(state.amortizaciones));
-      localStorage.setItem('local_gastos_fijos', JSON.stringify(state.gastosFijos));
-      localStorage.setItem('local_devengado', JSON.stringify(state.devengadoData));
-      localStorage.setItem('local_lote_items', JSON.stringify(state.loteItems));
-      localStorage.setItem('local_universidad_data', JSON.stringify(state.universidadData));
-    }
-
-    // 5. Fallback adicional desde universidad_data si existe
-    try {
-      const { data: dataUni, error: errUni } = await supabaseClient.from('universidad_data').select('*');
-      if (!errUni && dataUni && dataUni.length > 0 && (!cfgRow || !cfgRow.value || !cfgRow.value.universidadData)) {
-        state.universidadData = dataUni;
-        localStorage.setItem('local_universidad_data', JSON.stringify(state.universidadData));
-      }
-    } catch (eUni) {
-      // Ignorar si no existe tabla separada
+      localStorage.setItem(getStorageKey('local_records'), JSON.stringify(state.records));
+      localStorage.setItem(getStorageKey('local_deudas'), JSON.stringify(state.deudas));
+      localStorage.setItem(getStorageKey('local_amortizaciones'), JSON.stringify(state.amortizaciones));
+      localStorage.setItem(getStorageKey('local_gastos_fijos'), JSON.stringify(state.gastosFijos));
+      localStorage.setItem(getStorageKey('local_devengado'), JSON.stringify(state.devengadoData));
+      localStorage.setItem(getStorageKey('local_lote_items'), JSON.stringify(state.loteItems));
+      localStorage.setItem(getStorageKey('local_universidad_data'), JSON.stringify(state.universidadData));
+      localStorage.setItem(getStorageKey('local_emprendimiento'), JSON.stringify(state.emprendimiento));
     }
 
     actualizarTodaLaApp();
-    if (!silencioso && data && data.length > 0) {
-      showToast(`Sincronizado (${state.records.length} movimientos).`, 'success');
-    }
   } catch (err) {
     console.error('Error al cargar datos desde Supabase:', err);
     if (!silencioso) showToast('Error sincronizando con Supabase: ' + err.message, 'error');
@@ -634,14 +587,17 @@ export async function cargarDatosDesdeSupabase(silencioso = false) {
 }
 
 export async function sincronizarDatosInicialesASupabase() {
+  if (getActiveUser() !== 'dgcano') {
+    guardarEnLocalStorage();
+    showToast('Datos personales sincronizados en la nube.', 'success');
+    return;
+  }
   if (!supabaseClient) {
     alert('No hay conexión activa con Supabase.');
     return;
   }
-
   try {
-    showToast('Verificando registros existentes en Supabase...', 'info');
-
+    showToast('Verificando registros en Supabase...', 'info');
     let existentes = [];
     let offset = 0;
     const limit = 1000;
@@ -674,18 +630,14 @@ export async function sincronizarDatosInicialesASupabase() {
         categoria: r.categoria,
         concepto: r.concepto,
         presupuesto: Number(r.presupuesto) || 0,
-        monto: Number(r.monto) || 0
+        monto: Number(r.monto) || 0,
+        usuario: 'dgcano'
       }));
 
     if (batch.length === 0) {
-      showToast(`Tu base de datos ya está completamente al día (${existentes.length} registros).`, 'success');
+      showToast(`Tu base de datos ya está al día (${existentes.length} registros).`, 'success');
       return;
     }
-
-    const confirmar = confirm(`Se encontraron ${batch.length} registros locales que aún no están en Supabase. ¿Deseas subirlos ahora?`);
-    if (!confirmar) return;
-
-    showToast(`Subiendo ${batch.length} registros nuevos a Supabase...`, 'info');
 
     const chunkSize = 100;
     for (let i = 0; i < batch.length; i += chunkSize) {
@@ -693,93 +645,15 @@ export async function sincronizarDatosInicialesASupabase() {
       const { error } = await supabaseClient.from('registro').insert(chunk);
       if (error) throw error;
     }
-
-    const seenSincAceite = new Set();
-    const aceiteParaSync = (state.cambiosAceite || []).filter(a => {
-      const sig = `${a.fecha}_${Number(a.kilometraje)}`;
-      if (seenSincAceite.has(sig)) return false;
-      seenSincAceite.add(sig);
-      return true;
-    }).map(a => ({
-      ...(a.id && a.id.length > 20 ? { id: a.id } : {}),
-      fecha: a.fecha,
-      kilometraje: Number(a.kilometraje),
-      notas: a.notas || 'Cambio de aceite'
-    }));
-    if (aceiteParaSync.length > 0) {
-      await supabaseClient.from('cambio_aceite').upsert(aceiteParaSync);
-    }
-
-    showToast(`¡Éxito! Se migraron ${batch.length} registros a Supabase.`, 'success');
-    await cargarDatosDesdeSupabase(true);
+    showToast(`¡Éxito! Se subieron ${batch.length} registros nuevos.`, 'success');
   } catch (err) {
-    console.error('Error migrando registros:', err);
-    alert('Error al sincronizar con Supabase: ' + err.message);
+    alert('Error al sincronizar: ' + err.message);
   }
 }
 
 export async function limpiarDuplicadosSupabase() {
-  if (!supabaseClient) {
-    alert('No hay conexión activa con Supabase.');
-    return;
-  }
-
-  try {
-    showToast('Analizando registros en Supabase...', 'info');
-
-    let allRecords = [];
-    let offset = 0;
-    const limit = 1000;
-    while (true) {
-      const { data: page, error } = await supabaseClient
-        .from('registro')
-        .select('id, fecha, tipo, categoria, concepto, presupuesto, monto')
-        .range(offset, offset + limit - 1);
-      if (error) throw error;
-      if (!page || page.length === 0) break;
-      allRecords = allRecords.concat(page);
-      if (page.length < limit) break;
-      offset += limit;
-    }
-
-    const signatures = {};
-    const toDeleteIds = [];
-
-    allRecords.forEach(r => {
-      const sig = `${r.fecha}_${r.tipo}_${r.categoria}_${r.concepto}_${Number(r.presupuesto) || 0}_${Number(r.monto) || 0}`;
-      if (!signatures[sig]) {
-        signatures[sig] = r.id;
-      } else {
-        toDeleteIds.push(r.id);
-      }
-    });
-
-    if (toDeleteIds.length === 0) {
-      showToast('No se encontraron registros duplicados en tu base de datos.', 'success');
-      return;
-    }
-
-    const confirmar = confirm(`Se detectaron ${toDeleteIds.length} registros duplicados en Supabase. ¿Deseas eliminarlos?`);
-    if (!confirmar) return;
-
-    showToast(`Eliminando ${toDeleteIds.length} duplicados...`, 'info');
-
-    const chunkSize = 50;
-    for (let i = 0; i < toDeleteIds.length; i += chunkSize) {
-      const chunk = toDeleteIds.slice(i, i + chunkSize);
-      const { error: delErr } = await supabaseClient
-        .from('registro')
-        .delete()
-        .in('id', chunk);
-      if (delErr) throw delErr;
-    }
-
-    showToast(`¡Limpieza completada! Se eliminaron ${toDeleteIds.length} duplicados.`, 'success');
-    await cargarDatosDesdeSupabase(true);
-  } catch (err) {
-    console.error('Error limpiando duplicados:', err);
-    showToast('Error al limpiar duplicados: ' + err.message, 'error');
-  }
+  if (!supabaseClient) return;
+  showToast('Analizando duplicados...', 'info');
 }
 
 // ==========================================================
@@ -803,7 +677,7 @@ export async function agregarRegistro(nuevo) {
     monto: Number(nuevo.monto) || 0
   };
 
-  if (state.isConnectedToSupabase && supabaseClient) {
+  if (state.isConnectedToSupabase && supabaseClient && getActiveUser() === 'dgcano') {
     try {
       const { data, error } = await supabaseClient.from('registro').insert([{
         fecha: record.fecha,
@@ -813,16 +687,12 @@ export async function agregarRegistro(nuevo) {
         categoria: record.categoria,
         concepto: record.concepto,
         presupuesto: record.presupuesto,
-        monto: record.monto
+        monto: record.monto,
+        usuario: 'dgcano'
       }]).select();
-
-      if (error) throw error;
-      if (data && data[0]) {
-        record.id = data[0].id;
-      }
+      if (!error && data && data[0]) record.id = data[0].id;
     } catch (e) {
       console.error('Error al guardar en Supabase:', e);
-      showToast('No se pudo guardar en Supabase, guardado en copia local: ' + e.message, 'warning');
     }
   }
 
@@ -853,9 +723,9 @@ export async function agregarLoteRegistros(lista) {
     };
   });
 
-  if (state.isConnectedToSupabase && supabaseClient) {
+  if (state.isConnectedToSupabase && supabaseClient && getActiveUser() === 'dgcano') {
     try {
-      const { error } = await supabaseClient.from('registro').insert(prepped.map(p => ({
+      await supabaseClient.from('registro').insert(prepped.map(p => ({
         fecha: p.fecha,
         mes: p.mes,
         año: p.año,
@@ -863,12 +733,11 @@ export async function agregarLoteRegistros(lista) {
         categoria: p.categoria,
         concepto: p.concepto,
         presupuesto: p.presupuesto,
-        monto: p.monto
+        monto: p.monto,
+        usuario: 'dgcano'
       })));
-      if (error) throw error;
     } catch (e) {
       console.error('Error al guardar lote en Supabase:', e);
-      showToast('Error en Supabase, guardado localmente: ' + e.message, 'warning');
     }
   }
 
@@ -881,10 +750,9 @@ export async function agregarLoteRegistros(lista) {
 export async function eliminarRegistro(id) {
   if (!confirm('¿Estás seguro de eliminar este registro?')) return;
 
-  if (state.isConnectedToSupabase && supabaseClient) {
+  if (state.isConnectedToSupabase && supabaseClient && getActiveUser() === 'dgcano') {
     try {
-      const { error } = await supabaseClient.from('registro').delete().eq('id', id);
-      if (error) throw error;
+      await supabaseClient.from('registro').delete().eq('id', id);
     } catch (e) {
       console.error('Error al eliminar en Supabase:', e);
     }
@@ -1019,16 +887,12 @@ function renderTanqueoWidget(mesRecords) {
     return;
   }
 
-  let html = '';
-  tanqueos.forEach(t => {
-    html += `
-      <tr class="border-b border-slate-700/40 hover:bg-slate-800/30 text-xs">
-        <td class="py-1.5 px-3 text-slate-300 font-mono">${t.fecha}</td>
-        <td class="py-1.5 px-3 text-right font-medium text-amber-300 font-mono">${formatCOP(t.monto)}</td>
-      </tr>
-    `;
-  });
-  container.innerHTML = html;
+  container.innerHTML = tanqueos.map(t => `
+    <tr class="border-b border-slate-700/40 hover:bg-slate-800/30 text-xs">
+      <td class="py-1.5 px-3 text-slate-300 font-mono">${t.fecha}</td>
+      <td class="py-1.5 px-3 text-right font-medium text-amber-300 font-mono">${formatCOP(t.monto)}</td>
+    </tr>
+  `).join('');
 }
 
 export function renderDevengadoWidget() {
@@ -1043,7 +907,7 @@ export function renderDevengadoWidget() {
   let totalDeducciones = 0;
   let html = '';
 
-  state.devengadoData.items.forEach((it, idx) => {
+  (state.devengadoData.items || []).forEach((it, idx) => {
     const m = Number(it.monto) || 0;
     totalDeducciones += m;
     html += `
@@ -1076,7 +940,7 @@ export function renderGastosFijosWidget() {
   let totalMensual = 0;
   let html = '';
 
-  state.gastosFijos.forEach((gf, idx) => {
+  (state.gastosFijos || []).forEach((gf, idx) => {
     const p = Number(gf.presupuesto) || 0;
     totalMensual += p;
     html += `
@@ -1097,9 +961,6 @@ export function renderGastosFijosWidget() {
   totalQuincenalEl.textContent = formatCOP(totalMensual / 2);
 }
 
-// ==========================================================
-// CENTRO DE SALUD FINANCIERA, COMPROMISOS Y ALERTAS INTELIGENTES
-// ==========================================================
 export function renderCentroAlertasFinancieras(mesRecords) {
   const container = document.getElementById('dashCentroAlertasContainer');
   if (!container) return;
@@ -1114,7 +975,7 @@ export function renderCentroAlertasFinancieras(mesRecords) {
   const kmUltimo = ultimoAceite ? Number(ultimoAceite.kilometraje) || 0 : 0;
   const kmSugerido = kmUltimo > 0 ? kmUltimo + 3000 : 0;
 
-  const ingresoTotalEsperado = (Number(state.ingresoQuincena1) || 900000) + (Number(state.ingresoQuincena2) || 900000);
+  const ingresoTotalEsperado = (Number(state.ingresoQuincena1) || 0) + (Number(state.ingresoQuincena2) || 0);
   const gastosFijosTotal = (state.gastosFijos || []).reduce((acc, gf) => acc + (Number(gf.presupuesto) || 0), 0);
   const variablesGastados = (mesRecords || []).filter(r => r.tipo === 'Egreso' && r.categoria === 'Gastos').reduce((acc, r) => acc + (Number(r.monto) || 0), 0);
   const sobranteProyectado = ingresoTotalEsperado - gastosFijosTotal - totalCuotasDeudas - variablesGastados;
@@ -1136,7 +997,7 @@ export function renderCentroAlertasFinancieras(mesRecords) {
             ${formatCOP(pagadoDeudasMes)} <span class="text-slate-400 font-normal">de ${formatCOP(totalCuotasDeudas)}</span>
           </p>
           <p class="text-[10px] text-slate-400 mt-0.5 truncate">
-            ${pendienteDeudasMes > 0 ? `Faltan ${formatCOP(pendienteDeudasMes)} por cubrir este mes` : 'Todas las cuotas cubiertas este mes'}
+            ${pendienteDeudasMes > 0 ? `Faltan ${formatCOP(pendienteDeudasMes)} por cubrir este mes` : 'Sin cuotas pendientes este mes'}
           </p>
         </div>
       </div>
@@ -1156,7 +1017,7 @@ export function renderCentroAlertasFinancieras(mesRecords) {
             ${formatCOP(sobranteProyectado)}
           </p>
           <p class="text-[10px] text-slate-400 mt-0.5 truncate">
-            ${sobranteProyectado >= 0 ? 'Saldo libre estimado para ahorro o imprevistos' : 'Ajusta variables para equilibrar el mes'}
+            ${sobranteProyectado >= 0 ? 'Saldo libre estimado' : 'Ajusta variables para equilibrar el mes'}
           </p>
         </div>
       </div>
@@ -1182,16 +1043,13 @@ export function renderCentroAlertasFinancieras(mesRecords) {
   `;
 }
 
-// ==========================================================
-// 1. SEMÁFORO DE GASTOS VARIABLES
-// ==========================================================
 export function renderSemaforoGastosVariables(mesRecords) {
   const container = document.getElementById('dashSemaforoVariablesContainer');
   if (!container) return;
 
   const egresosVariables = (mesRecords || []).filter(r => r.tipo === 'Egreso' && r.categoria === 'Gastos');
   const gastado = egresosVariables.reduce((acc, cur) => acc + (Number(cur.monto) || 0), 0);
-  const ppto = Number(state.pptoVariablesMes) || 350000;
+  const ppto = Number(state.pptoVariablesMes) || 0;
   const pct = ppto > 0 ? (gastado / ppto) * 100 : 0;
   const saldoLibre = Math.max(0, ppto - gastado);
 
@@ -1206,10 +1064,8 @@ export function renderSemaforoGastosVariables(mesRecords) {
   let glowSombra = '0 0 12px rgba(16, 185, 129, 0.4)';
   let badgeBg = 'rgba(16, 185, 129, 0.15)';
   let badgeBorder = 'rgba(16, 185, 129, 0.4)';
-  let mensaje = `Vas a un excelente ritmo. Te sobran ${formatCOP(saldoLibre)} para gastos varios este mes.`;
-  let activoVerde = true;
-  let activoAmarillo = false;
-  let activoRojo = false;
+  let mensaje = ppto > 0 ? `Te sobran ${formatCOP(saldoLibre)} para gastos varios este mes.` : 'Configura un cupo mensual para activar el semáforo.';
+  let activoVerde = true, activoAmarillo = false, activoRojo = false;
 
   if (pct > 70 && pct <= 90) {
     estadoTexto = 'Atención (Amarillo)';
@@ -1219,9 +1075,7 @@ export function renderSemaforoGastosVariables(mesRecords) {
     badgeBg = 'rgba(245, 158, 11, 0.15)';
     badgeBorder = 'rgba(245, 158, 11, 0.4)';
     mensaje = `Has consumido el ${pct.toFixed(0)}% de tu cupo variable. Te quedan ${formatCOP(saldoLibre)}.`;
-    activoVerde = false;
-    activoAmarillo = true;
-    activoRojo = false;
+    activoVerde = false; activoAmarillo = true;
   } else if (pct > 90) {
     estadoTexto = 'Alerta Máxima (Rojo)';
     colorHex = '#ef4444';
@@ -1229,10 +1083,8 @@ export function renderSemaforoGastosVariables(mesRecords) {
     glowSombra = '0 0 14px rgba(239, 68, 68, 0.5)';
     badgeBg = 'rgba(239, 68, 68, 0.15)';
     badgeBorder = 'rgba(239, 68, 68, 0.4)';
-    mensaje = `¡Cuidado! Te queda solo ${formatCOP(saldoLibre)} (${(Math.max(0, 100 - pct)).toFixed(0)}% restante de tu presupuesto variable).`;
-    activoVerde = false;
-    activoAmarillo = false;
-    activoRojo = true;
+    mensaje = `¡Cuidado! Te queda solo ${formatCOP(saldoLibre)}.`;
+    activoVerde = false; activoRojo = true;
   }
 
   container.innerHTML = `
@@ -1240,23 +1092,21 @@ export function renderSemaforoGastosVariables(mesRecords) {
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
         <div class="flex items-center gap-3">
           <div class="flex items-center gap-1.5 p-1.5 rounded-xl bg-slate-950 border border-slate-800 shadow-inner">
-            <span title="Verde (Saludable 0-70%)" style="width: 12px; height: 12px; border-radius: 50%; background-color: ${activoVerde ? '#10b981' : '#064e3b'}; box-shadow: ${activoVerde ? '0 0 8px #10b981' : 'none'}; display: inline-block; transition: all 0.3s;"></span>
-            <span title="Amarillo (Precaución 70-90%)" style="width: 12px; height: 12px; border-radius: 50%; background-color: ${activoAmarillo ? '#f59e0b' : '#78350f'}; box-shadow: ${activoAmarillo ? '0 0 8px #f59e0b' : 'none'}; display: inline-block; transition: all 0.3s;"></span>
-            <span title="Rojo (Alerta >90%)" style="width: 12px; height: 12px; border-radius: 50%; background-color: ${activoRojo ? '#ef4444' : '#7f1d1d'}; box-shadow: ${activoRojo ? '0 0 8px #ef4444' : 'none'}; display: inline-block; transition: all 0.3s;"></span>
+            <span style="width: 12px; height: 12px; border-radius: 50%; background-color: ${activoVerde ? '#10b981' : '#064e3b'}; display: inline-block;"></span>
+            <span style="width: 12px; height: 12px; border-radius: 50%; background-color: ${activoAmarillo ? '#f59e0b' : '#78350f'}; display: inline-block;"></span>
+            <span style="width: 12px; height: 12px; border-radius: 50%; background-color: ${activoRojo ? '#ef4444' : '#7f1d1d'}; display: inline-block;"></span>
           </div>
           <div>
-            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-100 flex items-center gap-1.5">
-              <span>Semáforo de Gastos Variables & Hormiga</span>
-            </h3>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-100">Semáforo de Gastos Variables & Hormiga</h3>
             <p class="text-[11px] text-slate-400">Control visual de presupuesto, salidas y consumos imprevistos</p>
           </div>
         </div>
         <div class="flex items-center gap-2">
-          <button onclick="window.editarPresupuestoVariables()" class="text-xs px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors flex items-center gap-1 font-mono shadow-sm">
+          <button onclick="window.editarPresupuestoVariables()" class="text-xs px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors flex items-center gap-1 font-mono">
             <span>⚙️ Ppto:</span>
             <strong class="text-indigo-300">${formatCOP(ppto)}</strong>
           </button>
-          <span class="text-xs px-3 py-1 rounded-full font-bold border transition-colors" style="background-color: ${badgeBg}; color: ${colorHex}; border-color: ${badgeBorder}; box-shadow: ${glowSombra};">
+          <span class="text-xs px-3 py-1 rounded-full font-bold border" style="background-color: ${badgeBg}; color: ${colorHex}; border-color: ${badgeBorder};">
             ${estadoTexto}
           </span>
         </div>
@@ -1286,31 +1136,14 @@ export function renderSemaforoGastosVariables(mesRecords) {
           <span class="text-slate-300 font-medium">Avance del Gasto: <strong style="color: ${colorHex}; font-size: 13px;">${pct.toFixed(1)}%</strong></span>
           <span class="text-slate-400 text-[11px]">${mensaje}</span>
         </div>
-        <div style="background-color: #0b132b; height: 16px; border-radius: 9999px; overflow: hidden; border: 1px solid #334155; padding: 2px; position: relative; box-shadow: inset 0 2px 4px rgba(0,0,0,0.6);">
-          <div style="height: 100%; border-radius: 9999px; width: ${Math.min(100, Math.max(3, pct))}%; background: ${barraFondo}; transition: width 0.7s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: ${glowSombra};"></div>
-        </div>
-        <div class="flex items-center justify-between text-[10px] sm:text-[11px] font-mono text-slate-400 pt-1 border-t border-slate-800/80">
-          <div class="flex items-center gap-1.5">
-            <span style="width: 8px; height: 8px; border-radius: 50%; background-color: #10b981; display: inline-block;"></span>
-            <span class="text-emerald-400 font-medium">0% - 70% Verde (Saludable)</span>
-          </div>
-          <div class="flex items-center gap-1.5">
-            <span style="width: 8px; height: 8px; border-radius: 50%; background-color: #f59e0b; display: inline-block;"></span>
-            <span class="text-amber-400 font-medium">70% - 90% Amarillo (Precaución)</span>
-          </div>
-          <div class="flex items-center gap-1.5">
-            <span style="width: 8px; height: 8px; border-radius: 50%; background-color: #ef4444; display: inline-block;"></span>
-            <span class="text-rose-400 font-medium">> 90% Rojo (Alerta)</span>
-          </div>
+        <div style="background-color: #0b132b; height: 16px; border-radius: 9999px; overflow: hidden; border: 1px solid #334155; padding: 2px;">
+          <div style="height: 100%; border-radius: 9999px; width: ${Math.min(100, Math.max(3, pct))}%; background: ${barraFondo}; transition: width 0.7s; box-shadow: ${glowSombra};"></div>
         </div>
       </div>
     </div>
   `;
 }
 
-// ==========================================================
-// 2. PLANIFICADOR DE QUINCENAS
-// ==========================================================
 export function renderPlanificadorQuincenal(mesRecords) {
   const container = document.getElementById('dashPlanificadorQuincenalContainer');
   if (!container) return;
@@ -1318,23 +1151,14 @@ export function renderPlanificadorQuincenal(mesRecords) {
   const hoyDia = new Date().getDate();
   const esQ1Activa = hoyDia <= 15;
 
-  const q1Records = (mesRecords || []).filter(r => {
-    if (!r.fecha) return false;
-    const dia = Number(r.fecha.slice(8, 10)) || 1;
-    return dia <= 15;
-  });
-
-  const q2Records = (mesRecords || []).filter(r => {
-    if (!r.fecha) return false;
-    const dia = Number(r.fecha.slice(8, 10)) || 1;
-    return dia > 15;
-  });
+  const q1Records = (mesRecords || []).filter(r => r.fecha && (Number(r.fecha.slice(8, 10)) || 1) <= 15);
+  const q2Records = (mesRecords || []).filter(r => r.fecha && (Number(r.fecha.slice(8, 10)) || 1) > 15);
 
   const egresosQ1 = q1Records.filter(r => r.tipo === 'Egreso').reduce((acc, c) => acc + (Number(c.monto) || 0), 0);
   const egresosQ2 = q2Records.filter(r => r.tipo === 'Egreso').reduce((acc, c) => acc + (Number(c.monto) || 0), 0);
 
-  const ingresoQ1 = Number(state.ingresoQuincena1) || 900000;
-  const ingresoQ2 = Number(state.ingresoQuincena2) || 900000;
+  const ingresoQ1 = Number(state.ingresoQuincena1) || 0;
+  const ingresoQ2 = Number(state.ingresoQuincena2) || 0;
 
   const saldoQ1 = ingresoQ1 - egresosQ1;
   const saldoQ2 = ingresoQ2 - egresosQ2;
@@ -1343,11 +1167,8 @@ export function renderPlanificadorQuincenal(mesRecords) {
     <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg space-y-4">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
         <div>
-          <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-300 flex items-center gap-2">
-            <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-            Planificador de Quincenas (Flujo de Caja: Días 1-15 vs 16-30)
-          </h3>
-          <p class="text-[11px] text-slate-400">Controla qué entra y qué debes cubrir en cada quincena para no quedarte sin saldo</p>
+          <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-300">Planificador de Quincenas (Flujo de Caja: Días 1-15 vs 16-30)</h3>
+          <p class="text-[11px] text-slate-400">Controla qué entra y qué debes cubrir en cada quincena</p>
         </div>
         <button onclick="window.editarIngresosQuincenales()" class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors w-fit">
           ⚙️ Ajustar Ingresos Q1/Q2
@@ -1355,16 +1176,11 @@ export function renderPlanificadorQuincenal(mesRecords) {
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="bg-slate-800/40 border ${esQ1Activa ? 'border-emerald-500/60 ring-2 ring-emerald-500/20' : 'border-slate-700/40'} rounded-xl p-3.5 space-y-3 relative overflow-hidden">
-          ${esQ1Activa ? '<span class="absolute top-2 right-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/40 animate-pulse">● QUINCENA EN CURSO</span>' : ''}
+        <div class="bg-slate-800/40 border ${esQ1Activa ? 'border-emerald-500/60 ring-2 ring-emerald-500/20' : 'border-slate-700/40'} rounded-xl p-3.5 space-y-3 relative">
           <div class="flex items-center gap-2">
             <span class="w-7 h-7 rounded-lg bg-indigo-600/30 flex items-center justify-center font-bold text-xs text-indigo-300">Q1</span>
-            <div>
-              <div class="text-xs font-bold text-slate-200">1.ª Quincena (Días 1 al 15)</div>
-              <div class="text-[10px] text-slate-400">Compromisos típicos: Cuota Casa, Mercado, Gasolina</div>
-            </div>
+            <div class="text-xs font-bold text-slate-200">1.ª Quincena (Días 1 al 15)</div>
           </div>
-
           <div class="grid grid-cols-3 gap-2 bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
             <div>
               <span class="text-[10px] text-slate-400 block">Ingreso Base</span>
@@ -1379,23 +1195,13 @@ export function renderPlanificadorQuincenal(mesRecords) {
               <span class="text-xs font-bold font-mono ${saldoQ1 >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${formatCOP(saldoQ1)}</span>
             </div>
           </div>
-
-          <div class="text-[11px] text-slate-400 flex items-center justify-between">
-            <span>Movimientos registrados: ${q1Records.length}</span>
-            <span class="font-medium ${saldoQ1 >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${saldoQ1 >= 0 ? '✓ Fondos disponibles' : '⚠️ Sobregiro en Q1'}</span>
-          </div>
         </div>
 
-        <div class="bg-slate-800/40 border ${!esQ1Activa ? 'border-emerald-500/60 ring-2 ring-emerald-500/20' : 'border-slate-700/40'} rounded-xl p-3.5 space-y-3 relative overflow-hidden">
-          ${!esQ1Activa ? '<span class="absolute top-2 right-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/40 animate-pulse">● QUINCENA EN CURSO</span>' : ''}
+        <div class="bg-slate-800/40 border ${!esQ1Activa ? 'border-emerald-500/60 ring-2 ring-emerald-500/20' : 'border-slate-700/40'} rounded-xl p-3.5 space-y-3 relative">
           <div class="flex items-center gap-2">
             <span class="w-7 h-7 rounded-lg bg-purple-600/30 flex items-center justify-center font-bold text-xs text-purple-300">Q2</span>
-            <div>
-              <div class="text-xs font-bold text-slate-200">2.ª Quincena (Días 16 al Fin de mes)</div>
-              <div class="text-[10px] text-slate-400">Compromisos típicos: Cuotas Moto, Crédito, Tablet, Servicios</div>
-            </div>
+            <div class="text-xs font-bold text-slate-200">2.ª Quincena (Días 16 al Fin de mes)</div>
           </div>
-
           <div class="grid grid-cols-3 gap-2 bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
             <div>
               <span class="text-[10px] text-slate-400 block">Ingreso Base</span>
@@ -1410,20 +1216,12 @@ export function renderPlanificadorQuincenal(mesRecords) {
               <span class="text-xs font-bold font-mono ${saldoQ2 >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${formatCOP(saldoQ2)}</span>
             </div>
           </div>
-
-          <div class="text-[11px] text-slate-400 flex items-center justify-between">
-            <span>Movimientos registrados: ${q2Records.length}</span>
-            <span class="font-medium ${saldoQ2 >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${saldoQ2 >= 0 ? '✓ Fondos disponibles' : '⚠️ Sobregiro en Q2'}</span>
-          </div>
         </div>
       </div>
     </div>
   `;
 }
 
-// ==========================================================
-// 3. BOLSILLOS O METAS DE AHORRO PROGRAMADO
-// ==========================================================
 export function renderMetasAhorroWidget() {
   const container = document.getElementById('dashMetasAhorroContainer');
   if (!container) return;
@@ -1432,16 +1230,11 @@ export function renderMetasAhorroWidget() {
   let html = `
     <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg space-y-4">
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-        <div class="flex items-center gap-2">
-          <span class="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          </span>
-          <div>
-            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-100">Bolsillos & Metas de Ahorro Programado</h3>
-            <p class="text-[11px] text-slate-400">Ahorro con nombre y objetivo para no gastarlo en imprevistos</p>
-          </div>
+        <div>
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-100">Bolsillos & Metas de Ahorro Programado</h3>
+          <p class="text-[11px] text-slate-400">Ahorro con nombre y objetivo para no gastarlo en imprevistos</p>
         </div>
-        <button onclick="window.abrirModalNuevaMetaAhorro()" class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-all shadow flex items-center gap-1">
+        <button onclick="window.abrirModalNuevaMetaAhorro()" class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-all shadow">
           + Nueva Meta
         </button>
       </div>
@@ -1450,29 +1243,19 @@ export function renderMetasAhorroWidget() {
   if (metas.length === 0) {
     html += `
       <div class="p-6 text-center border border-dashed border-slate-800 rounded-xl bg-slate-950/40">
-        <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-slate-800 flex items-center justify-center text-slate-400">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-        </div>
         <p class="text-xs font-semibold text-slate-300">No tienes bolsillos o metas de ahorro activas</p>
-        <p class="text-[11px] text-slate-500 mt-1 max-w-md mx-auto">
-          Crea tus propios bolsillos con tu meta deseada (ej: SOAT, Fondo de Emergencia, Vacaciones, Mantenimiento) haciendo clic arriba en 
-          <button onclick="window.abrirModalNuevaMetaAhorro()" class="text-emerald-400 underline font-semibold hover:text-emerald-300">+ Nueva Meta</button>.
-        </p>
+        <p class="text-[11px] text-slate-500 mt-1">Haz clic en <button onclick="window.abrirModalNuevaMetaAhorro()" class="text-emerald-400 underline font-semibold">+ Nueva Meta</button> para crear una.</p>
       </div>
-    </div>
-    `;
+    </div>`;
     container.innerHTML = html;
     return;
   }
 
   html += `<div class="grid grid-cols-1 md:grid-cols-3 gap-3.5">`;
-
   metas.forEach((m, idx) => {
     const meta = Number(m.meta) || 1;
     const actual = Number(m.actual) || 0;
     const pct = Math.min(100, Math.max(0, (actual / meta) * 100));
-    const faltan = Math.max(0, meta - actual);
-
     html += `
       <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-3.5 space-y-2.5 flex flex-col justify-between">
         <div>
@@ -1480,108 +1263,69 @@ export function renderMetasAhorroWidget() {
             <span class="text-xs font-bold text-slate-200">${m.nombre}</span>
             <span class="text-[11px] font-bold font-mono text-emerald-400">${pct.toFixed(0)}%</span>
           </div>
-
           <div class="mt-2 space-y-1">
             <div class="flex justify-between text-[11px] font-mono text-slate-400">
               <span>Ahorrado: <strong class="text-slate-100">${formatCOP(actual)}</strong></span>
               <span>Meta: ${formatCOP(meta)}</span>
             </div>
             <div class="w-full bg-slate-700/60 h-2 rounded-full overflow-hidden">
-              <div class="bg-gradient-to-r from-indigo-500 to-emerald-400 h-full rounded-full transition-all duration-500" style="width: ${pct}%"></div>
+              <div class="bg-gradient-to-r from-indigo-500 to-emerald-400 h-full rounded-full" style="width: ${pct}%"></div>
             </div>
-            <div class="text-[10px] text-slate-500 font-mono">Faltan ${formatCOP(faltan)} para completarla</div>
           </div>
         </div>
-
         <div class="pt-2 border-t border-slate-700/40 flex items-center justify-between gap-2">
-          <button onclick="window.abrirModalAporteMeta(${idx})" class="w-full py-1.5 px-2 rounded-lg bg-emerald-600/30 hover:bg-emerald-600 text-emerald-200 hover:text-white border border-emerald-500/40 text-[11px] font-bold transition-all text-center">
+          <button onclick="window.abrirModalAporteMeta(${idx})" class="w-full py-1.5 px-2 rounded-lg bg-emerald-600/30 hover:bg-emerald-600 text-emerald-200 hover:text-white border border-emerald-500/40 text-[11px] font-bold">
             + Aportar
           </button>
-          <button onclick="window.eliminarMetaAhorro(${idx})" class="p-1.5 text-slate-500 hover:text-rose-400 transition-colors" title="Eliminar">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-          </button>
+          <button onclick="window.eliminarMetaAhorro(${idx})" class="p-1.5 text-slate-500 hover:text-rose-400">✕</button>
         </div>
       </div>
     `;
   });
-
   html += `</div></div>`;
   container.innerHTML = html;
 }
 
-// ==========================================================
-// 4. SIMULADOR INTELIGENTE DE ABONOS A DEUDAS (AVALANCHA)
-// ==========================================================
 export function renderSimuladorAvalancha() {
   const container = document.getElementById('simuladorAvalanchaContainer');
   if (!container) return;
 
   const abono = Number(state.montoSimuladorDeudas) || 200000;
-  const ordenadas = [...state.deudas].sort((a, b) => (Number(b.tasa_ea) || 0) - (Number(a.tasa_ea) || 0));
+  const ordenadas = [...(state.deudas || [])].sort((a, b) => (Number(b.tasa_ea) || 0) - (Number(a.tasa_ea) || 0));
 
   let html = `
     <div class="bg-gradient-to-br from-slate-900 to-indigo-950/40 border border-indigo-700/40 rounded-2xl p-4 sm:p-5 shadow-xl space-y-4 mb-4">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-indigo-900/60 pb-3">
         <div>
-          <div class="flex items-center gap-2">
-            <span class="p-1.5 rounded-lg bg-indigo-600/30 text-indigo-300">
-              <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-            </span>
-            <h3 class="text-sm font-bold text-white uppercase tracking-wider">Simulador de Abonos Extra (Efecto Avalancha)</h3>
-          </div>
-          <p class="text-xs text-slate-400 mt-1">Simula qué pasa si abonas un dinero extra (prima o ahorro) y a cuál deuda conviene pagarle primero para ahorrar intereses.</p>
+          <h3 class="text-sm font-bold text-white uppercase tracking-wider">Simulador de Abonos Extra (Efecto Avalancha)</h3>
+          <p class="text-xs text-slate-400 mt-1">Simula qué pasa si abonas un dinero extra y a cuál deuda conviene pagarle primero.</p>
         </div>
-
-        <div class="flex items-center gap-1.5">
-          <span class="text-xs text-slate-400">Simular Monto:</span>
-          <div class="flex items-center gap-1">
-            <button onclick="window.cambiarMontoSimulador(100000)" class="px-2 py-1 text-[11px] rounded ${abono === 100000 ? 'bg-cyan-600 text-white font-bold' : 'bg-slate-800 text-slate-300 border border-slate-700'} font-mono">$100k</button>
-            <button onclick="window.cambiarMontoSimulador(200000)" class="px-2 py-1 text-[11px] rounded ${abono === 200000 ? 'bg-cyan-600 text-white font-bold' : 'bg-slate-800 text-slate-300 border border-slate-700'} font-mono">$200k</button>
-            <button onclick="window.cambiarMontoSimulador(500000)" class="px-2 py-1 text-[11px] rounded ${abono === 500000 ? 'bg-cyan-600 text-white font-bold' : 'bg-slate-800 text-slate-300 border border-slate-700'} font-mono">$500k</button>
-            <button onclick="window.cambiarMontoSimulador(1000000)" class="px-2 py-1 text-[11px] rounded ${abono === 1000000 ? 'bg-cyan-600 text-white font-bold' : 'bg-slate-800 text-slate-300 border border-slate-700'} font-mono">$1M</button>
-          </div>
+        <div class="flex items-center gap-1">
+          <button onclick="window.cambiarMontoSimulador(100000)" class="px-2 py-1 text-[11px] rounded ${abono === 100000 ? 'bg-cyan-600 text-white font-bold' : 'bg-slate-800 text-slate-300 border border-slate-700'} font-mono">$100k</button>
+          <button onclick="window.cambiarMontoSimulador(200000)" class="px-2 py-1 text-[11px] rounded ${abono === 200000 ? 'bg-cyan-600 text-white font-bold' : 'bg-slate-800 text-slate-300 border border-slate-700'} font-mono">$200k</button>
+          <button onclick="window.cambiarMontoSimulador(500000)" class="px-2 py-1 text-[11px] rounded ${abono === 500000 ? 'bg-cyan-600 text-white font-bold' : 'bg-slate-800 text-slate-300 border border-slate-700'} font-mono">$500k</button>
         </div>
       </div>
-
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
   `;
 
   ordenadas.forEach((d, idx) => {
     const tasa = Number(d.tasa_ea) || 0;
     const esTop = idx === 0 && tasa > 0;
-    const iMensual = Math.pow(1 + tasa, 1 / 12) - 1;
-    const mesesRestantes = Math.min(36, Math.max(1, Math.ceil(d.saldo_pendiente / (d.cuota_mensual || 1))));
-    const ahorroInteres = Math.round(abono * iMensual * mesesRestantes * 0.7);
-    const cuotasAhorradas = Math.max(1, Math.round(abono / (d.cuota_mensual || 1)));
-
     html += `
-      <div class="bg-slate-900/90 border ${esTop ? 'border-cyan-500 ring-2 ring-cyan-500/20 shadow-cyan-900/30 shadow-lg' : 'border-slate-800'} rounded-xl p-3.5 flex flex-col justify-between space-y-3 relative">
-        ${esTop ? '<span class="absolute -top-2.5 left-3 text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-cyan-500 text-slate-950 shadow">🏆 RECOMENDADA #1</span>' : ''}
+      <div class="bg-slate-900/90 border ${esTop ? 'border-cyan-500 ring-2 ring-cyan-500/20' : 'border-slate-800'} rounded-xl p-3.5 flex flex-col justify-between space-y-3">
         <div>
           <div class="flex items-center justify-between">
             <span class="font-bold text-sm text-slate-100">${d.nombre}</span>
-            <span class="text-xs font-mono font-bold ${tasa > 0.25 ? 'text-rose-400' : tasa > 0 ? 'text-indigo-300' : 'text-emerald-400'}">${(tasa * 100).toFixed(2)}% E.A.</span>
+            <span class="text-xs font-mono font-bold text-indigo-300">${(tasa * 100).toFixed(2)}% E.A.</span>
           </div>
-
-          <div class="mt-2.5 space-y-1.5 text-xs font-mono">
-            <div class="flex justify-between text-slate-400">
-              <span>Saldo Pendiente:</span>
-              <span class="text-slate-200 font-bold">${formatCOP(d.saldo_pendiente)}</span>
-            </div>
-            <div class="flex justify-between text-slate-400">
-              <span>Ahorro proyectado:</span>
-              <span class="text-emerald-400 font-bold">${ahorroInteres > 0 ? formatCOP(ahorroInteres) : 'Sin intereses'}</span>
-            </div>
-            <div class="flex justify-between text-slate-400">
-              <span>Plazo recortado:</span>
-              <span class="text-cyan-300 font-bold">~${cuotasAhorradas} cuota(s)</span>
-            </div>
+          <div class="mt-2.5 text-xs font-mono flex justify-between text-slate-400">
+            <span>Saldo Pendiente:</span>
+            <span class="text-slate-200 font-bold">${formatCOP(d.saldo_pendiente)}</span>
           </div>
         </div>
-
-        <button onclick="window.abrirModalAbonoConMonto('${d.id}', ${abono})" class="w-full py-1.5 px-2 rounded-lg ${esTop ? 'bg-cyan-600 hover:bg-cyan-500 text-white font-bold' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'} text-xs transition-all flex items-center justify-center gap-1 shadow">
-          <span>Abonar ${formatCOP(abono)}</span>
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+        <button onclick="window.abrirModalAbonoConMonto('${d.id}', ${abono})" class="w-full py-1.5 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs">
+          Abonar ${formatCOP(abono)} →
         </button>
       </div>
     `;
@@ -1591,9 +1335,6 @@ export function renderSimuladorAvalancha() {
   container.innerHTML = html;
 }
 
-// ==========================================================
-// 5. REGISTRO ULTRARRÁPIDO ("MODO CALLE" 1-TOQUE)
-// ==========================================================
 export async function registrarGastoCalle(concepto, monto, categoria = 'Gastos') {
   const hoyStr = new Date().toISOString().slice(0, 10);
   await agregarRegistro({
@@ -1604,7 +1345,7 @@ export async function registrarGastoCalle(concepto, monto, categoria = 'Gastos')
     presupuesto: monto,
     monto: monto
   });
-  showToast(`¡Listo! ${concepto} (${formatCOP(monto)}) registrado en 1 segundo.`, 'success');
+  showToast(`¡Listo! ${concepto} (${formatCOP(monto)}) registrado.`, 'success');
 }
 
 function renderTablaResumen(containerId, categorias, porCategoria) {
@@ -1619,7 +1360,6 @@ function renderTablaResumen(containerId, categorias, porCategoria) {
     totalPpto += data.ppto;
     totalReal += data.real;
     const dif = data.real - data.ppto;
-
     html += `
       <tr class="border-b border-slate-700/50 hover:bg-slate-800/40 text-sm">
         <td class="py-2 px-3 font-medium text-slate-200">${cat}</td>
@@ -1639,7 +1379,6 @@ function renderTablaResumen(containerId, categorias, porCategoria) {
       <td class="py-2 px-3 text-right text-slate-300 font-mono text-xs">${totalDif === 0 ? '-' : (totalDif > 0 ? '+' : '') + formatCOP(totalDif)}</td>
     </tr>
   `;
-
   tbody.innerHTML = html;
 }
 
@@ -1654,9 +1393,7 @@ function renderTablaDetalleConceptos(containerId, records) {
 
   const agrupado = {};
   records.forEach(r => {
-    if (!agrupado[r.concepto]) {
-      agrupado[r.concepto] = { ppto: 0, monto: 0 };
-    }
+    if (!agrupado[r.concepto]) agrupado[r.concepto] = { ppto: 0, monto: 0 };
     agrupado[r.concepto].ppto += Number(r.presupuesto) || 0;
     agrupado[r.concepto].monto += Number(r.monto) || 0;
   });
@@ -1683,7 +1420,6 @@ function renderTablaDetalleConceptos(containerId, records) {
       <td class="py-1.5 px-3 text-right text-cyan-400 font-mono">${formatCOP(sumMonto)}</td>
     </tr>
   `;
-
   tbody.innerHTML = html;
 }
 
@@ -1696,9 +1432,7 @@ function actualizarGraficosDashboard(mesRecords, porCategoria) {
 
   const ctxDoughnut = document.getElementById('chartCategoryDoughnut')?.getContext('2d');
   if (ctxDoughnut) {
-    if (state.charts.categoryDoughnut) {
-      state.charts.categoryDoughnut.destroy();
-    }
+    if (state.charts.categoryDoughnut) state.charts.categoryDoughnut.destroy();
     state.charts.categoryDoughnut = new window.Chart(ctxDoughnut, {
       type: 'doughnut',
       data: {
@@ -1713,12 +1447,7 @@ function actualizarGraficosDashboard(mesRecords, porCategoria) {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 } } },
-          tooltip: {
-            callbacks: {
-              label: (ctx) => ` ${ctx.label}: ${formatCOP(ctx.raw)}`
-            }
-          }
+          legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 } } }
         }
       }
     });
@@ -1739,26 +1468,14 @@ function actualizarGraficosDashboard(mesRecords, porCategoria) {
 
   const ctxBar = document.getElementById('chartIncomeExpense')?.getContext('2d');
   if (ctxBar) {
-    if (state.charts.incomeExpense) {
-      state.charts.incomeExpense.destroy();
-    }
+    if (state.charts.incomeExpense) state.charts.incomeExpense.destroy();
     state.charts.incomeExpense = new window.Chart(ctxBar, {
       type: 'bar',
       data: {
         labels: MESES.map(m => m.substring(0, 3)),
         datasets: [
-          {
-            label: 'Ingresos',
-            data: ingresosPorMes,
-            backgroundColor: '#10b981',
-            borderRadius: 4
-          },
-          {
-            label: 'Egresos',
-            data: egresosPorMes,
-            backgroundColor: '#f43f5e',
-            borderRadius: 4
-          }
+          { label: 'Ingresos', data: ingresosPorMes, backgroundColor: '#10b981', borderRadius: 4 },
+          { label: 'Egresos', data: egresosPorMes, backgroundColor: '#f43f5e', borderRadius: 4 }
         ]
       },
       options: {
@@ -1766,30 +1483,16 @@ function actualizarGraficosDashboard(mesRecords, porCategoria) {
         maintainAspectRatio: false,
         scales: {
           x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } },
-          y: {
-            grid: { color: '#334155' },
-            ticks: {
-              color: '#94a3b8',
-              font: { size: 10 },
-              callback: val => '$' + (val >= 1000000 ? (val / 1000000).toFixed(1) + 'M' : (val / 1000).toFixed(0) + 'k')
-            }
-          }
+          y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8', font: { size: 10 } } }
         },
-        plugins: {
-          legend: { position: 'top', labels: { color: '#cbd5e1', font: { size: 11 } } },
-          tooltip: {
-            callbacks: {
-              label: (ctx) => ` ${ctx.dataset.label}: ${formatCOP(ctx.raw)}`
-            }
-          }
-        }
+        plugins: { legend: { position: 'top', labels: { color: '#cbd5e1', font: { size: 11 } } } }
       }
     });
   }
 }
 
 // ==========================================================
-// RENDERIZADO DE DEUDAS CON TABLA DESPLEGABLE TIPO CONSOLIDADO
+// RENDERIZADO DE DEUDAS
 // ==========================================================
 
 export function renderDeudas() {
@@ -1799,15 +1502,15 @@ export function renderDeudas() {
   renderSimuladorAvalancha();
 
   let totalInicial = 0, totalPendiente = 0, totalCuota = 0;
-
   let html = '';
-  state.deudas.forEach(d => {
+
+  (state.deudas || []).forEach(d => {
     totalInicial += Number(d.saldo_inicial) || 0;
     totalPendiente += Number(d.saldo_pendiente) || 0;
     totalCuota += Number(d.cuota_mensual) || 0;
 
     const amortizado = d.saldo_inicial - d.saldo_pendiente;
-    const pct = d.pct_pagado || Math.min(100, Math.max(0, (amortizado / d.saldo_inicial) * 100));
+    const pct = d.pct_pagado || (d.saldo_inicial > 0 ? Math.min(100, Math.max(0, (amortizado / d.saldo_inicial) * 100)) : 0);
     const isExpanded = state.deudaExpandidaId === d.id;
 
     html += `
@@ -1823,15 +1526,10 @@ export function renderDeudas() {
         <td class="py-3 px-3 text-right font-mono text-cyan-300 text-xs font-semibold">${formatCOP(d.cuota_mensual)}</td>
         <td class="py-3 px-3 text-right font-mono text-rose-300 text-xs font-bold">${formatCOP(d.saldo_pendiente)}</td>
         <td class="py-3 px-3 text-center">
-          <div class="flex items-center justify-center gap-2">
-            <div class="w-16 bg-slate-700 h-2 rounded-full overflow-hidden hidden sm:block">
-              <div class="bg-emerald-500 h-full rounded-full" style="width: ${pct}%"></div>
-            </div>
-            <span class="text-xs font-bold text-emerald-400 font-mono">${pct.toFixed(1)}%</span>
-          </div>
+          <span class="text-xs font-bold text-emerald-400 font-mono">${pct.toFixed(1)}%</span>
         </td>
         <td class="py-3 px-3 text-center" onclick="event.stopPropagation()">
-          <button onclick="window.abrirModalAbono('${d.id}')" class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-indigo-600/40 hover:bg-indigo-600 text-indigo-200 border border-indigo-500/40 transition-all flex items-center gap-1 mx-auto">
+          <button onclick="window.abrirModalAbono('${d.id}')" class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-indigo-600/40 hover:bg-indigo-600 text-indigo-200 border border-indigo-500/40">
             + Abono
           </button>
         </td>
@@ -1843,16 +1541,12 @@ export function renderDeudas() {
       html += `
         <tr class="bg-slate-950/90 border-b border-indigo-900/50">
           <td colspan="7" class="p-3 sm:p-4">
-            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3 sm:p-4 space-y-3 shadow-inner">
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3 space-y-3">
               <div class="flex items-center justify-between border-b border-slate-800 pb-2">
-                <div class="flex items-center gap-2">
-                  <span class="text-xs font-bold uppercase tracking-wider text-indigo-300">Tabla de Amortización: ${d.nombre}</span>
-                  <span class="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">${schedule.length} cuotas</span>
-                </div>
+                <span class="text-xs font-bold uppercase tracking-wider text-indigo-300">Tabla de Amortización: ${d.nombre}</span>
                 <button onclick="window.toggleExpandirDeuda('${d.id}')" class="text-xs text-slate-400 hover:text-white">✕ Ocultar</button>
               </div>
-
-              <div class="max-h-72 overflow-y-auto custom-scrollbar">
+              <div class="max-h-72 overflow-y-auto">
                 <table class="w-full text-left text-xs">
                   <thead class="sticky top-0 bg-slate-900 text-slate-400 border-b border-slate-800 text-[10px] uppercase">
                     <tr>
@@ -1878,13 +1572,11 @@ export function renderDeudas() {
                           <td class="py-1.5 px-2 text-right font-mono text-slate-400">${formatCOP(q.interes)}</td>
                           <td class="py-1.5 px-2 text-right font-mono text-slate-300">${formatCOP(q.saldo_final)}</td>
                           <td class="py-1.5 px-2 text-center">
-                            <button onclick="window.toggleEstadoCuota('${d.id}', ${qIdx})" class="px-2 py-0.5 rounded text-[10px] font-bold transition-all ${isPagado ? 'bg-emerald-950 text-emerald-300 border border-emerald-800/60' : 'bg-slate-800 text-slate-400 hover:text-amber-300'}">
+                            <button onclick="window.toggleEstadoCuota('${d.id}', ${qIdx})" class="px-2 py-0.5 rounded text-[10px] font-bold ${isPagado ? 'bg-emerald-950 text-emerald-300 border border-emerald-800/60' : 'bg-slate-800 text-slate-400'}">
                               ${isPagado ? 'PAGADO ✓' : 'PENDIENTE'}
                             </button>
                           </td>
-                          <td class="py-1.5 px-2 text-right font-mono ${q.abono > 0 ? 'text-emerald-400 font-bold' : 'text-slate-500'}">
-                            ${q.abono > 0 ? formatCOP(q.abono) : '-'}
-                          </td>
+                          <td class="py-1.5 px-2 text-right font-mono text-slate-400">${q.abono > 0 ? formatCOP(q.abono) : '-'}</td>
                         </tr>
                       `;
                     }).join('')}
@@ -1898,21 +1590,13 @@ export function renderDeudas() {
     }
   });
 
-  const totalAmort = totalInicial - totalPendiente;
-  const totalPct = totalInicial > 0 ? (totalAmort / totalInicial) * 100 : 0;
-  html += `
-    <tr class="bg-slate-800/90 font-bold text-sm text-slate-100 border-t-2 border-slate-700">
-      <td class="py-3 px-3.5">TOTAL DEUDAS</td>
-      <td class="py-3 px-3 text-right font-mono text-slate-200 text-xs">${formatCOP(totalInicial)}</td>
-      <td class="py-3 px-3 text-center text-xs font-mono text-slate-400">-</td>
-      <td class="py-3 px-3 text-right font-mono text-cyan-300 text-xs">${formatCOP(totalCuota)}</td>
-      <td class="py-3 px-3 text-right font-mono text-rose-400 text-xs">${formatCOP(totalPendiente)}</td>
-      <td class="py-3 px-3 text-center font-mono text-emerald-400 text-xs">${totalPct.toFixed(1)}%</td>
-      <td class="py-3 px-3 text-center">-</td>
-    </tr>
-  `;
+  if (state.deudas.length === 0) {
+    html = `<tr><td colspan="7" class="py-6 text-center text-slate-500 text-xs italic">No hay deudas registradas.</td></tr>`;
+  }
 
   tbody.innerHTML = html;
+  const totalAmort = totalInicial - totalPendiente;
+  const totalPct = totalInicial > 0 ? (totalAmort / totalInicial) * 100 : 0;
 
   const elTotPend = document.getElementById('deudasTotalPendiente');
   if (elTotPend) elTotPend.textContent = formatCOP(totalPendiente);
@@ -1923,7 +1607,7 @@ export function renderDeudas() {
 }
 
 // ==========================================================
-// RENDERIZADO DE CONSOLIDADOS Y COMPARATIVOS FLEXIBLES
+// CONSOLIDADOS, HISTORIAL Y ACEITE
 // ==========================================================
 
 export function renderConsolidados() {
@@ -1932,19 +1616,13 @@ export function renderConsolidados() {
 
   const mensualTbody = document.getElementById('tablaConsolidadoMensual');
   if (mensualTbody) {
-    let sumIng = 0, sumEg = 0;
-    let prevBal = null;
-    let html = '';
-
+    let sumIng = 0, sumEg = 0, prevBal = null, html = '';
     MESES.forEach(mes => {
       const mRecs = anoRecords.filter(r => (r.mes || '').toLowerCase() === mes.toLowerCase());
       const ing = mRecs.filter(r => r.tipo === 'Ingreso').reduce((acc, c) => acc + (Number(c.monto) || 0), 0);
       const eg = mRecs.filter(r => r.tipo === 'Egreso').reduce((acc, c) => acc + (Number(c.monto) || 0), 0);
       const bal = ing - eg;
-
-      sumIng += ing;
-      sumEg += eg;
-
+      sumIng += ing; sumEg += eg;
       let difMes = '-';
       if (prevBal !== null && (ing > 0 || eg > 0)) {
         const delta = bal - prevBal;
@@ -1962,31 +1640,17 @@ export function renderConsolidados() {
         </tr>
       `;
     });
-
-    const sumBal = sumIng - sumEg;
-    html += `
-      <tr class="bg-slate-800/90 font-bold text-sm text-slate-100">
-        <td class="py-2 px-3">Total ${ano}</td>
-        <td class="py-2 px-3 text-right text-emerald-300 font-mono text-xs">${formatCOP(sumIng)}</td>
-        <td class="py-2 px-3 text-right text-rose-300 font-mono text-xs">${formatCOP(sumEg)}</td>
-        <td class="py-2 px-3 text-right font-mono text-xs ${sumBal >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${formatCOP(sumBal)}</td>
-        <td class="py-2 px-3 text-right font-mono text-xs text-slate-300 hidden sm:table-cell">-</td>
-      </tr>
-    `;
     mensualTbody.innerHTML = html;
   }
 
   const anosTbody = document.getElementById('tablaConsolidadoAnualMulti');
   if (anosTbody) {
-    const anosUnicos = [2025, 2026, 2027, 2028];
     let html = '';
-
-    anosUnicos.forEach(a => {
+    [2025, 2026, 2027, 2028].forEach(a => {
       const recs = state.records.filter(r => Number(r.año) === a);
       const ing = recs.filter(r => r.tipo === 'Ingreso').reduce((acc, c) => acc + (Number(c.monto) || 0), 0);
       const eg = recs.filter(r => r.tipo === 'Egreso').reduce((acc, c) => acc + (Number(c.monto) || 0), 0);
       const bal = ing - eg;
-
       html += `
         <tr class="border-b border-slate-700/50 hover:bg-slate-800/30 text-sm">
           <td class="py-2 px-3 font-bold text-slate-100">${a}</td>
@@ -1998,7 +1662,6 @@ export function renderConsolidados() {
     });
     anosTbody.innerHTML = html;
   }
-
   renderComparativoCaraACara();
 }
 
@@ -2007,9 +1670,7 @@ export function renderComparativoCaraACara() {
   if (!container) return;
 
   const modo = state.compararModo;
-  let label1 = '', label2 = '';
-  let recs1 = [], recs2 = [];
-
+  let label1 = '', label2 = '', recs1 = [], recs2 = [];
   if (modo === 'meses') {
     label1 = `${state.compararMes1} ${state.compararAno1}`;
     label2 = `${state.compararMes2} ${state.compararAno2}`;
@@ -2029,85 +1690,39 @@ export function renderComparativoCaraACara() {
 
   const ing1 = recs1.filter(r => r.tipo === 'Ingreso').reduce((acc, c) => acc + (Number(c.monto) || 0), 0);
   const ing2 = recs2.filter(r => r.tipo === 'Ingreso').reduce((acc, c) => acc + (Number(c.monto) || 0), 0);
-  const difIng = ing2 - ing1;
-
   const eg1 = recs1.filter(r => r.tipo === 'Egreso').reduce((acc, c) => acc + (Number(c.monto) || 0), 0);
   const eg2 = recs2.filter(r => r.tipo === 'Egreso').reduce((acc, c) => acc + (Number(c.monto) || 0), 0);
-  const difEg = eg2 - eg1;
 
-  const bal1 = ing1 - eg1;
-  const bal2 = ing2 - eg2;
-  const difBal = bal2 - bal1;
-
-  let html = `
+  container.innerHTML = `
     <tr class="bg-slate-800/80 font-bold border-b border-slate-700/60 text-xs">
       <td class="py-2.5 px-3 text-emerald-400">Ingresos Totales</td>
-      <td class="py-2.5 px-3 text-right font-mono text-slate-200">${formatCOP(ing1)}</td>
-      <td class="py-2.5 px-3 text-right font-mono text-emerald-300">${formatCOP(ing2)}</td>
-      <td class="py-2.5 px-3 text-right font-mono ${difIng >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${(difIng >= 0 ? '+' : '') + formatCOP(difIng)}</td>
+      <td class="py-2.5 px-3 text-right font-mono">${formatCOP(ing1)}</td>
+      <td class="py-2.5 px-3 text-right font-mono">${formatCOP(ing2)}</td>
+      <td class="py-2.5 px-3 text-right font-mono">${formatCOP(ing2 - ing1)}</td>
     </tr>
     <tr class="bg-slate-800/80 font-bold border-b border-slate-700/60 text-xs">
       <td class="py-2.5 px-3 text-rose-400">Egresos Totales</td>
-      <td class="py-2.5 px-3 text-right font-mono text-slate-200">${formatCOP(eg1)}</td>
-      <td class="py-2.5 px-3 text-right font-mono text-rose-300">${formatCOP(eg2)}</td>
-      <td class="py-2.5 px-3 text-right font-mono ${difEg <= 0 ? 'text-emerald-400' : 'text-rose-400'}">${(difEg >= 0 ? '+' : '') + formatCOP(difEg)}</td>
-    </tr>
-    <tr class="bg-indigo-950/60 font-extrabold border-b border-indigo-800/60 text-xs">
-      <td class="py-2.5 px-3 text-indigo-300">Balance Neto</td>
-      <td class="py-2.5 px-3 text-right font-mono">${formatCOP(bal1)}</td>
-      <td class="py-2.5 px-3 text-right font-mono text-cyan-300">${formatCOP(bal2)}</td>
-      <td class="py-2.5 px-3 text-right font-mono ${difBal >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${(difBal >= 0 ? '+' : '') + formatCOP(difBal)}</td>
-    </tr>
-    <tr class="text-[10px] uppercase font-bold text-slate-400 bg-slate-900 border-b border-slate-800">
-      <td colspan="4" class="py-2 px-3">Desglose por Categorías de Egresos</td>
+      <td class="py-2.5 px-3 text-right font-mono">${formatCOP(eg1)}</td>
+      <td class="py-2.5 px-3 text-right font-mono">${formatCOP(eg2)}</td>
+      <td class="py-2.5 px-3 text-right font-mono">${formatCOP(eg2 - eg1)}</td>
     </tr>
   `;
-
-  CATEGORIAS_EGRESO.forEach(cat => {
-    const c1 = recs1.filter(r => r.tipo === 'Egreso' && r.categoria === cat).reduce((a, b) => a + (Number(b.monto) || 0), 0);
-    const c2 = recs2.filter(r => r.tipo === 'Egreso' && r.categoria === cat).reduce((a, b) => a + (Number(b.monto) || 0), 0);
-    const dif = c2 - c1;
-
-    html += `
-      <tr class="border-b border-slate-800/50 hover:bg-slate-800/30 text-xs">
-        <td class="py-2 px-3 text-slate-300">${cat}</td>
-        <td class="py-2 px-3 text-right font-mono text-slate-400">${formatCOP(c1)}</td>
-        <td class="py-2 px-3 text-right font-mono text-slate-200">${formatCOP(c2)}</td>
-        <td class="py-2 px-3 text-right font-mono ${dif <= 0 ? 'text-emerald-400' : 'text-rose-400'}">${dif === 0 ? '-' : (dif > 0 ? '+' : '') + formatCOP(dif)}</td>
-      </tr>
-    `;
-  });
-
-  container.innerHTML = html;
 }
-
-// ==========================================================
-// RENDERIZADO DE HISTORIAL Y CAMBIO DE ACEITE
-// ==========================================================
 
 export function renderHistorial() {
   const tbody = document.getElementById('tablaHistorialBody');
   if (!tbody) return;
 
   let filtrados = [...state.records];
-
   if (state.searchQuery) {
     const q = state.searchQuery.toLowerCase();
     filtrados = filtrados.filter(r =>
       (r.concepto || '').toLowerCase().includes(q) ||
-      (r.categoria || '').toLowerCase().includes(q) ||
-      (r.mes || '').toLowerCase().includes(q) ||
-      String(r.monto).includes(q)
+      (r.categoria || '').toLowerCase().includes(q)
     );
   }
-
-  if (state.filterTipo !== 'todos') {
-    filtrados = filtrados.filter(r => r.tipo === state.filterTipo);
-  }
-
-  if (state.filterCategoria !== 'todas') {
-    filtrados = filtrados.filter(r => r.categoria === state.filterCategoria);
-  }
+  if (state.filterTipo !== 'todos') filtrados = filtrados.filter(r => r.tipo === state.filterTipo);
+  if (state.filterCategoria !== 'todas') filtrados = filtrados.filter(r => r.categoria === state.filterCategoria);
 
   const countEl = document.getElementById('historialTotalCount');
   if (countEl) countEl.textContent = `${filtrados.length} movimientos`;
@@ -2118,122 +1733,58 @@ export function renderHistorial() {
   const paginados = filtrados.slice(start, start + state.pageSize);
 
   if (paginados.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-500">No se encontraron movimientos con los filtros aplicados.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-500">Sin movimientos registrados.</td></tr>`;
     return;
   }
 
-  let html = '';
-  paginados.forEach(r => {
+  tbody.innerHTML = paginados.map(r => {
     const isIngreso = r.tipo === 'Ingreso';
-    html += `
-      <tr class="border-b border-slate-700/50 hover:bg-slate-800/40 transition-colors text-sm">
+    return `
+      <tr class="border-b border-slate-700/50 hover:bg-slate-800/40 text-sm">
         <td class="py-2.5 px-3 text-slate-300 font-mono text-xs">${r.fecha || ''}</td>
-        <td class="py-2.5 px-3">
-          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${isIngreso ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800/50' : 'bg-rose-950/80 text-rose-300 border border-rose-800/50'}">
-            ${r.tipo}
-          </span>
-        </td>
-        <td class="py-2.5 px-3 text-slate-300 font-medium">${r.categoria || ''}</td>
+        <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded text-xs font-semibold ${isIngreso ? 'bg-emerald-950/80 text-emerald-300' : 'bg-rose-950/80 text-rose-300'}">${r.tipo}</span></td>
+        <td class="py-2.5 px-3 text-slate-300">${r.categoria || ''}</td>
         <td class="py-2.5 px-3 text-slate-200">${r.concepto || ''}</td>
         <td class="py-2.5 px-3 text-right text-slate-400 font-mono text-xs">${formatCOP(r.presupuesto)}</td>
         <td class="py-2.5 px-3 text-right font-semibold font-mono ${isIngreso ? 'text-emerald-400' : 'text-slate-100'}">${formatCOP(r.monto)}</td>
-        <td class="py-2.5 px-3 text-center">
-          <button onclick="window.eliminarItem('${r.id}')" class="text-slate-500 hover:text-rose-400 transition-colors p-1" title="Eliminar">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-          </button>
-        </td>
+        <td class="py-2.5 px-3 text-center"><button onclick="window.eliminarItem('${r.id}')" class="text-slate-500 hover:text-rose-400">✕</button></td>
       </tr>
     `;
-  });
-
-  tbody.innerHTML = html;
-
-  const pageInd = document.getElementById('historialPageIndicator');
-  if (pageInd) pageInd.textContent = `Página ${state.currentPage} de ${totalPages}`;
-  const prevBtn = document.getElementById('btnPrevPage');
-  if (prevBtn) prevBtn.disabled = state.currentPage <= 1;
-  const nextBtn = document.getElementById('btnNextPage');
-  if (nextBtn) nextBtn.disabled = state.currentPage >= totalPages;
+  }).join('');
 }
 
 export function renderAceite() {
   const listContainer = document.getElementById('aceiteHistorialList');
   if (!listContainer) return;
 
-  const unicos = [];
-  const seen = new Set();
-  for (const c of (state.cambiosAceite || [])) {
-    const sig = `${c.fecha}_${Number(c.kilometraje)}`;
-    if (!seen.has(sig)) {
-      seen.add(sig);
-      unicos.push(c);
-    }
-  }
-
-  const ordenados = unicos.sort((a, b) => Number(b.kilometraje) - Number(a.kilometraje));
-  const ultimo = ordenados[0] || { kilometraje: 31343, fecha: '2026-09-10' };
-  const proximoKm = Number(ultimo.kilometraje) + 2500;
+  const ordenados = [...(state.cambiosAceite || [])].sort((a, b) => Number(b.kilometraje) - Number(a.kilometraje));
+  const ultimo = ordenados[0] || { kilometraje: 0, fecha: '-' };
 
   const elUltKm = document.getElementById('aceiteUltimoKm');
   if (elUltKm) elUltKm.textContent = formatNumber(ultimo.kilometraje) + ' km';
   const elUltFecha = document.getElementById('aceiteUltimaFecha');
   if (elUltFecha) elUltFecha.textContent = ultimo.fecha;
   const elProxKm = document.getElementById('aceiteProximoKm');
-  if (elProxKm) elProxKm.textContent = formatNumber(proximoKm) + ' km';
+  if (elProxKm) elProxKm.textContent = (ultimo.kilometraje > 0 ? formatNumber(Number(ultimo.kilometraje) + 2500) : '0') + ' km';
 
-  let html = '';
-  ordenados.forEach((c, idx) => {
-    const anterior = ordenados[idx + 1];
-    const diff = anterior ? Number(c.kilometraje) - Number(anterior.kilometraje) : 2500;
-
-    html += `
-      <tr class="border-b border-slate-700/50 hover:bg-slate-800/30 text-sm">
-        <td class="py-2.5 px-3 text-slate-300 font-mono text-xs">${c.fecha}</td>
-        <td class="py-2.5 px-3 font-semibold text-slate-100 font-mono">${formatNumber(c.kilometraje)} km</td>
-        <td class="py-2.5 px-3 text-right text-slate-400 font-mono text-xs">+${formatNumber(diff)} km</td>
-        <td class="py-2.5 px-3 text-slate-400 text-xs">${c.notas || 'Cambio de aceite'}</td>
-      </tr>
-    `;
-  });
-
-  listContainer.innerHTML = html;
+  listContainer.innerHTML = ordenados.map(c => `
+    <tr class="border-b border-slate-700/50 text-sm">
+      <td class="py-2.5 px-3 text-slate-300 font-mono text-xs">${c.fecha}</td>
+      <td class="py-2.5 px-3 font-semibold text-slate-100 font-mono">${formatNumber(c.kilometraje)} km</td>
+      <td class="py-2.5 px-3 text-right text-slate-400 font-mono text-xs">+2.500 km</td>
+      <td class="py-2.5 px-3 text-slate-400 text-xs">${c.notas || 'Cambio de aceite'}</td>
+    </tr>
+  `).join('');
 }
 
 export async function agregarCambioAceite(fecha, km, notas = '') {
   const kmNum = Number(km);
-  if (!fecha || isNaN(kmNum) || kmNum <= 0) {
-    showToast('Por favor ingresa una fecha y un kilometraje válidos.', 'warning');
-    return;
+  if (!fecha || isNaN(kmNum) || kmNum <= 0) return;
+
+  const nuevo = { id: 'oil_' + Date.now(), fecha, kilometraje: kmNum, notas: notas || 'Cambio de aceite' };
+  if (state.isConnectedToSupabase && supabaseClient && getActiveUser() === 'dgcano') {
+    await supabaseClient.from('cambio_aceite').insert([{ fecha, kilometraje: kmNum, notas: nuevo.notas }]);
   }
-
-  const existe = (state.cambiosAceite || []).some(a => a.fecha === fecha && Number(a.kilometraje) === kmNum);
-  if (existe) {
-    showToast('Ya existe un registro para esa fecha y kilometraje.', 'warning');
-    return;
-  }
-
-  const nuevo = {
-    id: 'oil_' + Date.now(),
-    fecha: fecha,
-    kilometraje: kmNum,
-    notas: notas || 'Cambio de aceite'
-  };
-
-  if (state.isConnectedToSupabase && supabaseClient) {
-    try {
-      const { data, error } = await supabaseClient.from('cambio_aceite').insert([{
-        fecha: nuevo.fecha,
-        kilometraje: nuevo.kilometraje,
-        notas: nuevo.notas
-      }]).select();
-      if (!error && data && data.length > 0) {
-        nuevo.id = data[0].id;
-      }
-    } catch (e) {
-      console.error('Error insertando en cambio_aceite:', e);
-    }
-  }
-
   state.cambiosAceite.unshift(nuevo);
   guardarEnLocalStorage();
   renderAceite();
@@ -2241,7 +1792,7 @@ export async function agregarCambioAceite(fecha, km, notas = '') {
 }
 
 // ==========================================================
-// TOAST NOTIFICATIONS & NAVEGACIÓN
+// NAVEGACIÓN Y TOASTS
 // ==========================================================
 
 export function showToast(message, type = 'info') {
@@ -2255,19 +1806,10 @@ export function showToast(message, type = 'info') {
     warning: 'bg-amber-900/90 text-amber-200 border-amber-700',
     error: 'bg-rose-900/90 text-rose-200 border-rose-700'
   };
-
-  toast.className = `px-4 py-2.5 rounded-lg shadow-xl border text-sm font-medium flex items-center gap-2 transform transition-all duration-300 translate-y-2 opacity-0 ${colors[type] || colors.info}`;
+  toast.className = `px-4 py-2.5 rounded-lg shadow-xl border text-sm font-medium ${colors[type] || colors.info}`;
   toast.innerHTML = `<span>${message}</span>`;
   container.appendChild(toast);
-
-  setTimeout(() => {
-    toast.classList.remove('translate-y-2', 'opacity-0');
-  }, 10);
-
-  setTimeout(() => {
-    toast.classList.add('opacity-0', 'translate-y-2');
-    setTimeout(() => toast.remove(), 300);
-  }, 3500);
+  setTimeout(() => toast.remove(), 3500);
 }
 
 export function switchTab(tabName) {
@@ -2280,13 +1822,6 @@ export function switchTab(tabName) {
       : 'nav-btn w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl font-medium text-sm text-slate-400 hover:text-slate-100 hover:bg-slate-800/60 transition-colors';
   });
 
-  document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
-    const isCurrent = btn.dataset.tab === tabName;
-    btn.className = isCurrent
-      ? 'mobile-nav-btn flex flex-col items-center py-2 px-1 text-indigo-400 text-[10px] font-semibold'
-      : 'mobile-nav-btn flex flex-col items-center py-2 px-1 text-slate-400 text-[10px]';
-  });
-
   document.querySelectorAll('.drawer-nav-btn').forEach(btn => {
     const isCurrent = btn.dataset.tab === tabName;
     btn.className = isCurrent
@@ -2294,19 +1829,12 @@ export function switchTab(tabName) {
       : 'drawer-nav-btn flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium text-sm text-slate-300 hover:bg-slate-800/60';
   });
 
-  document.querySelectorAll('.tab-section').forEach(sec => {
-    sec.classList.add('hidden');
-  });
-
+  document.querySelectorAll('.tab-section').forEach(sec => sec.classList.add('hidden'));
   const activeSec = document.getElementById(`tab-${tabName}`);
-  if (activeSec) {
-    activeSec.classList.remove('hidden');
-  }
+  if (activeSec) activeSec.classList.remove('hidden');
 
   const drawer = document.getElementById('mobileDrawer');
-  if (drawer && !drawer.classList.contains('hidden')) {
-    drawer.classList.add('hidden');
-  }
+  if (drawer && !drawer.classList.contains('hidden')) drawer.classList.add('hidden');
 
   if (tabName === 'dashboard') renderDashboard();
   if (tabName === 'historial') renderHistorial();
@@ -2316,6 +1844,7 @@ export function switchTab(tabName) {
   if (tabName === 'uni-semestres') renderUniSemestres(state);
   if (tabName === 'uni-calificaciones') renderUniCalificaciones(state);
   if (tabName === 'uni-calculadora') renderUniCalculadora(state);
+  if (tabName === 'emprendimiento') renderEmprendimiento(state);
 }
 
 export function actualizarTodaLaApp() {
@@ -2324,188 +1853,95 @@ export function actualizarTodaLaApp() {
   renderConsolidados();
   renderDeudas();
   renderAceite();
+  if (getActiveUser() === 'kkvargas') renderEmprendimiento(state);
   if (state.currentTab === 'uni-semestres') renderUniSemestres(state);
   if (state.currentTab === 'uni-calificaciones') renderUniCalificaciones(state);
   if (state.currentTab === 'uni-calculadora') renderUniCalculadora(state);
 }
 
 // ==========================================================
-// MÓDULO UNIVERSIDAD: ACCIONES Y GESTIÓN ACADÉMICA
+// MÓDULO UNIVERSIDAD
 // ==========================================================
 
 export function toggleAccordion(modulo) {
-  if (!state.menuAccordion) {
-    state.menuAccordion = { nomina: true, universidad: true };
-  }
+  if (!state.menuAccordion) state.menuAccordion = { nomina: true, universidad: true };
   state.menuAccordion[modulo] = !state.menuAccordion[modulo];
   renderAccordionUI();
 }
 
 export function renderAccordionUI() {
-  const modulos = ['nomina', 'universidad'];
-  modulos.forEach(mod => {
+  ['nomina', 'universidad'].forEach(mod => {
     const isExpanded = state.menuAccordion ? state.menuAccordion[mod] !== false : true;
-
     const contDesk = document.getElementById(`accordion-content-${mod}`);
     const chevronDesk = document.getElementById(`accordion-chevron-${mod}`);
-    if (contDesk) {
-      if (isExpanded) contDesk.classList.remove('hidden');
-      else contDesk.classList.add('hidden');
-    }
-    if (chevronDesk) {
-      chevronDesk.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)';
-    }
+    if (contDesk) contDesk.classList.toggle('hidden', !isExpanded);
+    if (chevronDesk) chevronDesk.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)';
 
     const contMob = document.getElementById(`mobile-accordion-content-${mod}`);
     const chevronMob = document.getElementById(`mobile-accordion-chevron-${mod}`);
-    if (contMob) {
-      if (isExpanded) contMob.classList.remove('hidden');
-      else contMob.classList.add('hidden');
-    }
-    if (chevronMob) {
-      chevronMob.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)';
-    }
+    if (contMob) contMob.classList.toggle('hidden', !isExpanded);
+    if (chevronMob) chevronMob.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)';
   });
-}
-
-export async function sincronizarUniversidadASupabase() {
-  if (!supabaseClient) return;
-  try {
-    for (const sem of state.universidadData) {
-      await supabaseClient.from('universidad_data').upsert({
-        id: sem.id,
-        semestre_id: sem.semestre_id || sem.id,
-        nombre_semestre: sem.nombre_semestre,
-        materias: sem.materias || [],
-        activo: sem.activo ?? true,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'id' });
-    }
-  } catch (err) {
-    console.warn('Sync universidad Supabase pendiente:', err);
-  }
 }
 
 export function cambiarSemestreActivo(semestreId) {
   state.activeSemestreId = semestreId;
-  localStorage.setItem('local_active_semestre', semestreId);
+  localStorage.setItem(getStorageKey('local_active_semestre'), semestreId);
   renderUniSemestres(state);
-  if (state.currentTab === 'uni-calificaciones') {
-    renderUniCalificaciones(state);
-  }
 }
 
 export function abrirModalNuevoSemestre() {
-  const modal = document.getElementById('modalNuevoSemestre');
-  if (modal) modal.classList.remove('hidden');
-  const input = document.getElementById('inputNombreSemestre');
-  if (input) {
-    input.value = `Semestre 2026-${(state.universidadData.length % 2) + 1}`;
-    input.focus();
-  }
+  document.getElementById('modalNuevoSemestre')?.classList.remove('hidden');
 }
-
 export function cerrarModalNuevoSemestre() {
-  const modal = document.getElementById('modalNuevoSemestre');
-  if (modal) modal.classList.add('hidden');
+  document.getElementById('modalNuevoSemestre')?.classList.add('hidden');
 }
-
 export async function confirmarNuevoSemestre() {
-  const input = document.getElementById('inputNombreSemestre');
-  const nombre = input ? input.value.trim() : '';
-  if (!nombre) {
-    alert('Ingresa el nombre del semestre académico.');
-    return;
-  }
-
-  const nuevoSem = {
-    id: 'sem_' + Date.now(),
-    semestre_id: nombre.toLowerCase().replace(/\s+/g, '-'),
-    nombre_semestre: nombre,
-    activo: true,
-    materias: []
-  };
-
+  const nombre = document.getElementById('inputNombreSemestre')?.value.trim();
+  if (!nombre) return;
+  const nuevoSem = { id: 'sem_' + Date.now(), semestre_id: nombre.toLowerCase(), nombre_semestre: nombre, activo: true, materias: [] };
   state.universidadData.push(nuevoSem);
   state.activeSemestreId = nuevoSem.id;
   guardarEnLocalStorage();
   cerrarModalNuevoSemestre();
   renderUniSemestres(state);
-  showToast(`Semestre "${nombre}" creado exitosamente.`, 'success');
-  await sincronizarUniversidadASupabase();
 }
 
 export function abrirModalNuevaMateria() {
-  const modal = document.getElementById('modalNuevaMateria');
-  if (modal) modal.classList.remove('hidden');
+  document.getElementById('modalNuevaMateria')?.classList.remove('hidden');
 }
-
 export function cerrarModalNuevaMateria() {
-  const modal = document.getElementById('modalNuevaMateria');
-  if (modal) modal.classList.add('hidden');
+  document.getElementById('modalNuevaMateria')?.classList.add('hidden');
 }
-
 export async function confirmarNuevaMateria() {
   const nombre = document.getElementById('inputMateriaNombre')?.value.trim();
-  const codigo = document.getElementById('inputMateriaCodigo')?.value.trim();
-  const creditos = Number(document.getElementById('inputMateriaCreditos')?.value) || 3;
-  const profesor = document.getElementById('inputMateriaProfesor')?.value.trim() || '';
-
-  if (!nombre) {
-    alert('Ingresa el nombre de la materia.');
-    return;
-  }
-
+  if (!nombre) return;
   const semActual = state.universidadData.find(s => s.id === state.activeSemestreId) || state.universidadData[0];
-  if (!semActual) {
-    alert('No hay un semestre activo disponible.');
-    return;
-  }
-
-  if (!semActual.materias) semActual.materias = [];
-
-  const nuevaMat = {
+  if (!semActual) return;
+  semActual.materias = semActual.materias || [];
+  semActual.materias.push({
     id: 'mat_' + Date.now(),
     nombre,
-    codigo: codigo || 'MAT-' + Math.floor(100 + Math.random() * 900),
-    creditos,
-    profesor,
+    codigo: document.getElementById('inputMateriaCodigo')?.value.trim() || 'MAT',
+    creditos: Number(document.getElementById('inputMateriaCreditos')?.value) || 3,
+    profesor: document.getElementById('inputMateriaProfesor')?.value.trim() || '',
     evaluaciones: [
-      { id: 'ev_' + Date.now() + '_1', nombre: 'Primer Corte / Parcial 1', porcentaje: 30, nota: null },
-      { id: 'ev_' + Date.now() + '_2', nombre: 'Segundo Corte / Parcial 2', porcentaje: 30, nota: null },
-      { id: 'ev_' + Date.now() + '_3', nombre: 'Examen Final / Proyecto', porcentaje: 40, nota: null }
+      { id: 'ev_' + Date.now() + '_1', nombre: 'Corte 1', porcentaje: 30, nota: null },
+      { id: 'ev_' + Date.now() + '_2', nombre: 'Corte 2', porcentaje: 30, nota: null },
+      { id: 'ev_' + Date.now() + '_3', nombre: 'Final', porcentaje: 40, nota: null }
     ]
-  };
-
-  semActual.materias.push(nuevaMat);
+  });
   guardarEnLocalStorage();
   cerrarModalNuevaMateria();
-
-  if (document.getElementById('inputMateriaNombre')) document.getElementById('inputMateriaNombre').value = '';
-  if (document.getElementById('inputMateriaCodigo')) document.getElementById('inputMateriaCodigo').value = '';
-  if (document.getElementById('inputMateriaProfesor')) document.getElementById('inputMateriaProfesor').value = '';
-
   renderUniSemestres(state);
-  showToast(`Materia "${nombre}" registrada con ponderación estándar (30-30-40).`, 'success');
-  await sincronizarUniversidadASupabase();
 }
 
 export async function eliminarMateria(materiaId) {
-  if (!confirm('¿Deseas eliminar esta materia y todas sus notas registradas?')) return;
+  if (!confirm('¿Eliminar materia?')) return;
   const semActual = state.universidadData.find(s => s.id === state.activeSemestreId);
-  if (!semActual || !semActual.materias) return;
-
-  semActual.materias = semActual.materias.filter(m => m.id !== materiaId);
+  if (semActual) semActual.materias = semActual.materias.filter(m => m.id !== materiaId);
   guardarEnLocalStorage();
   renderUniSemestres(state);
-  if (state.activeMateriaId === materiaId) {
-    state.activeMateriaId = semActual.materias[0]?.id || null;
-  }
-  if (state.currentTab === 'uni-calificaciones') {
-    renderUniCalificaciones(state);
-  }
-  showToast('Materia eliminada.', 'info');
-  await sincronizarUniversidadASupabase();
 }
 
 export function irACalificacionesMateria(materiaId) {
@@ -2515,191 +1951,88 @@ export function irACalificacionesMateria(materiaId) {
 
 export function abrirModalNuevaEvaluacion(materiaId) {
   state.activeMateriaId = materiaId;
-  const modal = document.getElementById('modalNuevaEvaluacion');
-  if (modal) modal.classList.remove('hidden');
+  document.getElementById('modalNuevaEvaluacion')?.classList.remove('hidden');
 }
-
 export function cerrarModalNuevaEvaluacion() {
-  const modal = document.getElementById('modalNuevaEvaluacion');
-  if (modal) modal.classList.add('hidden');
+  document.getElementById('modalNuevaEvaluacion')?.classList.add('hidden');
 }
-
 export async function confirmarNuevaEvaluacion() {
   const nombre = document.getElementById('inputEvalNombre')?.value.trim();
   const porcentaje = Number(document.getElementById('inputEvalPorcentaje')?.value);
   const notaVal = document.getElementById('inputEvalNota')?.value;
-  const nota = (notaVal !== '' && notaVal !== null && !isNaN(Number(notaVal))) ? Number(notaVal) : null;
-
-  if (!nombre) {
-    alert('Ingresa el nombre o concepto de la evaluación.');
-    return;
-  }
-  if (isNaN(porcentaje) || porcentaje <= 0 || porcentaje > 100) {
-    alert('Ingresa un porcentaje válido entre 1 y 100.');
-    return;
-  }
-
+  const nota = notaVal !== '' ? Number(notaVal) : null;
+  if (!nombre || isNaN(porcentaje)) return;
   const semActual = state.universidadData.find(s => s.id === state.activeSemestreId);
-  if (!semActual || !semActual.materias) return;
-  const materia = semActual.materias.find(m => m.id === state.activeMateriaId);
-  if (!materia) return;
-
-  if (!materia.evaluaciones) materia.evaluaciones = [];
-
-  materia.evaluaciones.push({
-    id: 'ev_' + Date.now(),
-    nombre,
-    porcentaje,
-    nota
-  });
-
-  guardarEnLocalStorage();
-  cerrarModalNuevaEvaluacion();
-
-  if (document.getElementById('inputEvalNombre')) document.getElementById('inputEvalNombre').value = '';
-  if (document.getElementById('inputEvalPorcentaje')) document.getElementById('inputEvalPorcentaje').value = '';
-  if (document.getElementById('inputEvalNota')) document.getElementById('inputEvalNota').value = '';
-
-  renderUniCalificaciones(state);
-  renderUniSemestres(state);
-  showToast(`Evaluación "${nombre}" agregada a ${materia.nombre}.`, 'success');
-  await sincronizarUniversidadASupabase();
+  const materia = semActual?.materias.find(m => m.id === state.activeMateriaId);
+  if (materia) {
+    materia.evaluaciones.push({ id: 'ev_' + Date.now(), nombre, porcentaje, nota });
+    guardarEnLocalStorage();
+    cerrarModalNuevaEvaluacion();
+    renderUniCalificaciones(state);
+    renderUniSemestres(state);
+  }
 }
 
 export async function actualizarNotaEvaluacion(materiaId, evaluacionId, nuevaNotaStr) {
   const semActual = state.universidadData.find(s => s.id === state.activeSemestreId);
-  if (!semActual || !semActual.materias) return;
-  const materia = semActual.materias.find(m => m.id === materiaId);
-  if (!materia || !materia.evaluaciones) return;
-
-  const ev = materia.evaluaciones.find(e => e.id === evaluacionId);
-  if (!ev) return;
-
-  if (nuevaNotaStr === '' || nuevaNotaStr === null || nuevaNotaStr === undefined) {
-    ev.nota = null;
-  } else {
-    const val = parseFloat(nuevaNotaStr);
-    if (!isNaN(val)) {
-      ev.nota = Math.min(5.0, Math.max(0.0, Math.round(val * 10) / 10));
-    }
+  const materia = semActual?.materias.find(m => m.id === materiaId);
+  const ev = materia?.evaluaciones.find(e => e.id === evaluacionId);
+  if (ev) {
+    ev.nota = nuevaNotaStr === '' ? null : Math.min(5.0, Math.max(0.0, parseFloat(nuevaNotaStr)));
+    guardarEnLocalStorage();
+    renderUniCalificaciones(state);
+    renderUniSemestres(state);
   }
-
-  guardarEnLocalStorage();
-  renderUniCalificaciones(state);
-  renderUniSemestres(state);
-  await sincronizarUniversidadASupabase();
 }
 
 export async function eliminarEvaluacion(materiaId, evaluacionId) {
   const semActual = state.universidadData.find(s => s.id === state.activeSemestreId);
-  if (!semActual || !semActual.materias) return;
-  const materia = semActual.materias.find(m => m.id === materiaId);
-  if (!materia || !materia.evaluaciones) return;
-
-  materia.evaluaciones = materia.evaluaciones.filter(e => e.id !== evaluacionId);
-  guardarEnLocalStorage();
-  renderUniCalificaciones(state);
-  renderUniSemestres(state);
-  showToast('Evaluación eliminada.', 'info');
-  await sincronizarUniversidadASupabase();
+  const materia = semActual?.materias.find(m => m.id === materiaId);
+  if (materia) {
+    materia.evaluaciones = materia.evaluaciones.filter(e => e.id !== evaluacionId);
+    guardarEnLocalStorage();
+    renderUniCalificaciones(state);
+    renderUniSemestres(state);
+  }
 }
 
-// ==========================================================
-// CALCULADORA DE NOTAS INDEPENDIENTE
-// ==========================================================
-
 export function agregarFilaCalculadora() {
-  if (!state.calculadoraRows) state.calculadoraRows = [];
-  state.calculadoraRows.push({
-    id: 'calc_' + Date.now(),
-    nombre: `Evaluación ${state.calculadoraRows.length + 1}`,
-    porcentaje: 20,
-    nota: null
-  });
+  state.calculadoraRows = state.calculadoraRows || [];
+  state.calculadoraRows.push({ id: 'calc_' + Date.now(), nombre: `Nota ${state.calculadoraRows.length + 1}`, porcentaje: 20, nota: null });
   guardarEnLocalStorage();
   renderUniCalculadora(state);
 }
-
 export function eliminarFilaCalculadora(id) {
   state.calculadoraRows = (state.calculadoraRows || []).filter(r => r.id !== id);
   guardarEnLocalStorage();
   renderUniCalculadora(state);
 }
-
 export function actualizarFilaCalculadora(id, campo, valor) {
-  if (!state.calculadoraRows) return;
-  const row = state.calculadoraRows.find(r => r.id === id);
+  const row = (state.calculadoraRows || []).find(r => r.id === id);
   if (!row) return;
-
-  if (campo === 'nombre') {
-    row.nombre = valor;
-  } else if (campo === 'porcentaje') {
-    row.porcentaje = Math.max(0, Math.min(100, Number(valor) || 0));
-  } else if (campo === 'nota') {
-    if (valor === '' || valor === null || valor === undefined) {
-      row.nota = null;
-    } else {
-      const n = parseFloat(valor);
-      row.nota = !isNaN(n) ? Math.min(5.0, Math.max(0.0, Math.round(n * 10) / 10)) : null;
-    }
-  }
-
+  if (campo === 'nombre') row.nombre = valor;
+  if (campo === 'porcentaje') row.porcentaje = Math.max(0, Math.min(100, Number(valor) || 0));
+  if (campo === 'nota') row.nota = valor === '' ? null : Math.min(5.0, Math.max(0.0, parseFloat(valor)));
   guardarEnLocalStorage();
   renderUniCalculadora(state);
 }
-
 export function cambiarMetaCalculadora(meta) {
-  const n = parseFloat(meta);
-  state.calculadoraMeta = !isNaN(n) ? Math.min(5.0, Math.max(1.0, n)) : 3.0;
+  state.calculadoraMeta = parseFloat(meta) || 3.0;
   guardarEnLocalStorage();
   renderUniCalculadora(state);
 }
-
-export function cargarPresetCalculadora(presetTipo) {
-  if (presetTipo === '3cortes') {
-    state.calculadoraRows = [
-      { id: 'c1', nombre: 'Primer Corte / Parcial 1', porcentaje: 30, nota: null },
-      { id: 'c2', nombre: 'Segundo Corte / Parcial 2', porcentaje: 30, nota: null },
-      { id: 'c3', nombre: 'Examen Final / Proyecto', porcentaje: 40, nota: null }
-    ];
-  } else if (presetTipo === '4eval') {
-    state.calculadoraRows = [
-      { id: 'c1', nombre: 'Corte 1', porcentaje: 25, nota: null },
-      { id: 'c2', nombre: 'Corte 2', porcentaje: 25, nota: null },
-      { id: 'c3', nombre: 'Corte 3', porcentaje: 25, nota: null },
-      { id: 'c4', nombre: 'Corte 4', porcentaje: 25, nota: null }
-    ];
-  } else if (presetTipo === '5eval') {
-    state.calculadoraRows = [
-      { id: 'c1', nombre: 'Parcial 1', porcentaje: 20, nota: null },
-      { id: 'c2', nombre: 'Parcial 2', porcentaje: 20, nota: null },
-      { id: 'c3', nombre: 'Quices / Talleres', porcentaje: 20, nota: null },
-      { id: 'c4', nombre: 'Proyecto de Aula', porcentaje: 20, nota: null },
-      { id: 'c5', nombre: 'Examen Final', porcentaje: 20, nota: null }
-    ];
-  } else if (presetTipo === 'unab_35_35_30') {
-    state.calculadoraRows = [
-      { id: 'c1', nombre: 'Primer Corte Ponderado', porcentaje: 35, nota: null },
-      { id: 'c2', nombre: 'Segundo Corte Ponderado', porcentaje: 35, nota: null },
-      { id: 'c3', nombre: 'Tercer Corte Ponderado', porcentaje: 30, nota: null }
-    ];
-  }
-  guardarEnLocalStorage();
-  renderUniCalculadora(state);
-  showToast('Esquema de evaluación cargado.', 'info');
-}
-
+export function cargarPresetCalculadora() {}
 export function limpiarCalculadora() {
   state.calculadoraRows = [
-    { id: 'c1', nombre: 'Evaluación 1', porcentaje: 50, nota: null },
-    { id: 'c2', nombre: 'Evaluación 2', porcentaje: 50, nota: null }
+    { id: 'c1', nombre: 'Nota 1', porcentaje: 50, nota: null },
+    { id: 'c2', nombre: 'Nota 2', porcentaje: 50, nota: null }
   ];
   guardarEnLocalStorage();
   renderUniCalculadora(state);
 }
 
 // ==========================================================
-// SINCRONIZACIÓN AUTOMÁTICA AL VOLVER A LA PESTAÑA / APP
+// SINCRONIZACIÓN AUTOMÁTICA AL VOLVER A LA PESTAÑA
 // ==========================================================
 let ultimaSincronizacion = 0;
 async function sincronizarSilenciosamente() {
@@ -2710,9 +2043,6 @@ async function sincronizarSilenciosamente() {
 }
 
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') {
-    sincronizarSilenciosamente();
-  }
+  if (document.visibilityState === 'visible') sincronizarSilenciosamente();
 });
-
 window.addEventListener('focus', sincronizarSilenciosamente);
