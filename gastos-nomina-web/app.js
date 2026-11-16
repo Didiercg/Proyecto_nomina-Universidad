@@ -226,6 +226,28 @@ export async function initSupabase() {
         state.isConnectedToSupabase = true;
         updateSupabaseStatusUI(true);
         await cargarDatosDesdeSupabase();
+
+        // Suscripción en tiempo real a cambios de otros dispositivos
+supabaseClient
+  .channel('cambios-globales')
+  .on(
+    'postgres_changes',
+    { event: '*', schema: 'public', table: 'app_config' },
+    async () => {
+      await cargarDatosDesdeSupabase();
+      if (typeof actualizarTodaLaApp === 'function') actualizarTodaLaApp();
+    }
+  )
+  .on(
+    'postgres_changes',
+    { event: '*', schema: 'public', table: 'registro' },
+    async () => {
+      await cargarDatosDesdeSupabase();
+      if (typeof actualizarTodaLaApp === 'function') actualizarTodaLaApp();
+    }
+  )
+  .subscribe();
+        
         return;
       } else {
         console.warn('Error Supabase:', error.message);
