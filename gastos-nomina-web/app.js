@@ -560,6 +560,17 @@ export async function cargarDatosDesdeSupabase() {
       offset += limit;
     }
 
+    // Dentro de cargarDatosDesdeSupabase()
+const { data: uniData, error: uniError } = await supabaseClient
+  .from('universidad_data')
+  .select('*')
+  .order('nombre_semestre', { ascending: true });
+
+if (!uniError && uniData && uniData.length > 0) {
+  state.universidadData = uniData;
+  localStorage.setItem('local_universidad_data', JSON.stringify(uniData));
+}
+
     if (data && data.length > 0) {
       // Deduplicar en memoria para asegurar que la vista siempre esté limpia
       const seenSigs = new Set();
