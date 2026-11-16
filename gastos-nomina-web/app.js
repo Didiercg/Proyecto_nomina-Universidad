@@ -504,8 +504,7 @@ export function guardarEnLocalStorage() {
       .from('app_config')
       .upsert({
         key: 'global_state',
-        value: payload,
-        updated_at: new Date().toISOString()
+        value: payload
       }, { onConflict: 'key' })
       .then(({ error }) => {
         if (error) console.warn('Error sincronizando estado a Supabase:', error.message);
